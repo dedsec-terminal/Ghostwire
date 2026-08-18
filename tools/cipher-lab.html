@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cipher Lab — Ghostwire</title>
+<meta name="description" content="Browser cipher lab: Caesar, Vigenère, XOR, Atbash. Brute-force Caesar and single-byte XOR. Character frequency analysis with bar visualization.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root{
+    --bg:#0a0a0a;--surface:#111111;--surface2:#161616;
+    --border:#1e1e1e;--accent:#00ff88;--text:#d4d4d4;
+    --text-dim:#6b7280;--text-bright:#f0f0f0;--red:#ff4444;
+  }
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:'JetBrains Mono',monospace;margin:0;min-height:100vh;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.02) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(0,255,136,0.02) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  textarea,input[type="text"],input[type="number"],input[type="password"]{
+    background:var(--surface2);border:1px solid var(--border);
+    color:var(--text-bright);font-family:'JetBrains Mono',monospace;
+    font-size:0.8rem;resize:vertical;outline:none;
+    transition:border-color 0.15s;width:100%;padding:12px;
+  }
+  textarea:focus,input:focus{border-color:var(--accent);}
+  select{
+    background:var(--surface2);border:1px solid var(--border);
+    color:var(--text-bright);font-family:'JetBrains Mono',monospace;
+    font-size:0.8rem;padding:8px 12px;outline:none;width:100%;
+    transition:border-color 0.15s;
+  }
+  select:focus{border-color:var(--accent);}
+  button.run{
+    background:var(--accent);color:#000;font-family:'JetBrains Mono',monospace;
+    font-size:0.75rem;font-weight:700;padding:10px 24px;
+    border:none;cursor:pointer;letter-spacing:0.06em;
+    transition:background 0.15s,transform 0.1s;
+  }
+  button.run:hover{background:#00cc6a;transform:translateY(-1px);}
+  button.sec{
+    background:transparent;border:1px solid var(--border);color:var(--text-dim);
+    font-family:'JetBrains Mono',monospace;font-size:0.7rem;padding:9px 16px;
+    cursor:pointer;transition:all 0.12s;
+  }
+  button.sec:hover{border-color:var(--accent);color:var(--accent);}
+  .tab{
+    font-size:0.7rem;padding:7px 16px;border:1px solid var(--border);
+    color:var(--text-dim);cursor:pointer;background:transparent;
+    font-family:'JetBrains Mono',monospace;transition:all 0.12s;
+  }
+  .tab.active{background:rgba(0,255,136,0.1);border-color:var(--accent);color:var(--accent);}
+  .label{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:6px;}
+  .card{background:var(--surface);border:1px solid var(--border);padding:16px;}
+  .error{color:var(--red);font-size:0.75rem;}
+  .brute-row{
+    display:grid;grid-template-columns:50px 60px 90px 1fr;gap:8px;
+    align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border);
+    font-size:0.72rem;
+  }
+  .brute-row:last-child{border-bottom:none;}
+  .brute-row:first-child{color:var(--text-dim);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.07em;}
+  .score-bar-wrap{display:flex;align-items:center;gap:8px;overflow:hidden;}
+  .score-bar{height:4px;background:var(--accent);opacity:0.6;flex-shrink:0;}
+  .plain-preview{color:var(--text-bright);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  /* Frequency chart */
+  .freq-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+  .freq-char{width:20px;text-align:right;color:var(--text-dim);font-size:0.7rem;flex-shrink:0;}
+  .freq-bar-bg{flex:1;height:12px;background:var(--border);}
+  .freq-bar-fill{height:100%;background:var(--accent);transition:width 0.3s;}
+  .freq-pct{width:48px;text-align:right;font-size:0.65rem;color:var(--text-dim);}
+  .copy-btn{
+    font-size:0.6rem;padding:3px 8px;border:1px solid var(--border);
+    color:var(--text-dim);background:transparent;cursor:pointer;
+    font-family:'JetBrains Mono',monospace;transition:border-color 0.12s,color 0.12s;
+  }
+  .copy-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .highlight{border-color:var(--accent) !important;background:rgba(0,255,136,0.05);}
+</style>
+</head>
+<body>
+<div class="max-w-4xl mx-auto px-6 py-12">
+
+  <!-- Nav -->
+  <nav class="mb-10 flex items-center gap-4 text-xs text-[#4b5563]">
+    <a href="index.html" class="text-[#6b7280] hover:text-[#00ff88] transition-colors">ghostwire</a>
+    <span>/</span>
+    <span class="text-[#00ff88]">cipher-lab</span>
+  </nav>
+
+  <!-- Title -->
+  <div class="flex items-center gap-3 mb-8">
+    <div class="w-1.5 h-6 bg-[#00ff88]"></div>
+    <h1 class="text-xl font-bold text-[#f0f0f0] tracking-tight">CIPHER LAB</h1>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex flex-wrap gap-1 mb-8">
+    <button class="tab active" id="tab-cipher" onclick="switchTab('cipher')">ciphers</button>
+    <button class="tab" id="tab-brute" onclick="switchTab('brute')">brute-force</button>
+    <button class="tab" id="tab-freq" onclick="switchTab('freq')">frequency analysis</button>
+  </div>
+
+  <!-- ===================== CIPHER PANEL ===================== -->
+  <div id="panel-cipher">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <!-- Cipher selector -->
+      <div>
+        <div class="label">Cipher</div>
+        <select id="cipher-select" onchange="updateCipherOptions()">
+          <option value="caesar">Caesar</option>
+          <option value="vigenere">Vigenère</option>
+          <option value="xor">XOR</option>
+          <option value="atbash">Atbash</option>
+          <option value="railfence">Rail Fence</option>
+          <option value="playfair">Playfair</option>
+          <option value="baconian">Baconian</option>
+          <option value="rc4">RC4</option>
+        </select>
+      </div>
+      <!-- Direction -->
+      <div>
+        <div class="label">Direction</div>
+        <div class="flex gap-2">
+          <button class="tab active" id="cdir-enc" onclick="setCipherDir('encode')">encode</button>
+          <button class="tab" id="cdir-dec" onclick="setCipherDir('decode')">decode</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cipher-specific options -->
+    <div id="opt-caesar" class="mb-4">
+      <div class="label">Shift (1–25)</div>
+      <input type="number" id="caesar-shift" value="13" min="1" max="25" style="width:100px">
+    </div>
+    <div id="opt-rails" class="mb-4 hidden">
+      <div class="label">Rails</div>
+      <input type="number" id="rail-count" value="3" min="2" style="width:100px">
+    </div>
+    <div id="opt-key" class="mb-4 hidden">
+      <div class="label">Key</div>
+      <input type="text" id="cipher-key" placeholder="Enter key...">
+    </div>
+    <div id="opt-xor-mode" class="mb-4 hidden">
+      <div class="label">XOR output format</div>
+      <div class="flex gap-2">
+        <button class="tab active" id="xor-out-hex" onclick="setXorOut('hex')">hex output</button>
+        <button class="tab" id="xor-out-text" onclick="setXorOut('text')">text output (decode)</button>
+      </div>
+      <p class="text-xs text-[#4b5563] mt-2">Encode: plaintext → hex. Decode: paste hex → plaintext.</p>
+    </div>
+
+    <!-- IO -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div>
+        <div class="label flex justify-between"><span>Input</span><button class="copy-btn" onclick="copyEl('cipher-in')">copy</button></div>
+        <textarea id="cipher-in" rows="8" placeholder="Input text..."></textarea>
+      </div>
+      <div>
+        <div class="label flex justify-between"><span>Output</span><button class="copy-btn" onclick="copyEl('cipher-out')">copy</button></div>
+        <textarea id="cipher-out" rows="8" placeholder="Result..." readonly></textarea>
+      </div>
+    </div>
+    <div class="flex gap-3 items-center">
+      <button class="run" onclick="runCipher()">RUN</button>
+      <button class="sec" onclick="swapCipher()">⇄ swap</button>
+      <button class="sec" onclick="clearCipher()">clear</button>
+      <span id="cipher-error" class="error"></span>
+    </div>
+    <div class="mt-3 flex items-center gap-2">
+      <input type="checkbox" id="cipher-live" checked style="accent-color:#00ff88">
+      <label for="cipher-live" class="text-xs text-[#6b7280]">live update</label>
+    </div>
+  </div>
+
+  <!-- ===================== BRUTE-FORCE PANEL ===================== -->
+  <div id="panel-brute" class="hidden">
+    <div class="flex gap-1 mb-6">
+      <button class="tab active" id="btype-caesar" onclick="setBruteType('caesar')">caesar (25 shifts)</button>
+      <button class="tab" id="btype-xor" onclick="setBruteType('xor')">single-byte XOR (256 keys)</button>
+    </div>
+
+    <div id="brute-xor-note" class="mb-4 hidden">
+      <p class="text-xs text-[#6b7280]">Paste hex-encoded XOR ciphertext below. The tool tries all 256 single-byte keys and scores by English letter frequency.</p>
+    </div>
+
+    <div class="mb-4">
+      <div class="label">Ciphertext</div>
+      <textarea id="brute-input" rows="5" placeholder="Enter ciphertext..."></textarea>
+    </div>
+    <div class="mb-4">
+      <div class="label">Show top N results</div>
+      <input type="number" id="brute-top" value="10" min="1" max="256" style="width:100px">
+    </div>
+    <div class="flex gap-3 mb-6">
+      <button class="run" onclick="runBrute()">BRUTE-FORCE</button>
+    </div>
+
+    <div id="brute-results" class="hidden">
+      <div class="label mb-3">Results</div>
+      <div class="card">
+        <div class="brute-row" id="brute-header"></div>
+        <div id="brute-rows"></div>
+      </div>
+    </div>
+    <div id="brute-error" class="error"></div>
+  </div>
+
+  <!-- ===================== FREQUENCY ANALYSIS PANEL ===================== -->
+  <div id="panel-freq" class="hidden">
+    <div class="mb-4">
+      <div class="label">Input text</div>
+      <textarea id="freq-input" rows="6" placeholder="Paste ciphertext or any text here..."></textarea>
+    </div>
+    <div class="flex gap-3 mb-6">
+      <button class="run" onclick="runFreq()">ANALYZE</button>
+      <div class="flex items-center gap-2 ml-2">
+        <input type="checkbox" id="freq-live" checked style="accent-color:#00ff88">
+        <label for="freq-live" class="text-xs text-[#6b7280]">live update</label>
+      </div>
+    </div>
+
+    <div id="freq-results" class="hidden">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Bar chart -->
+        <div>
+          <div class="label mb-4">Character frequency</div>
+          <div id="freq-chart"></div>
+        </div>
+        <!-- Stats -->
+        <div>
+          <div class="label mb-4">Statistics</div>
+          <div id="freq-stats" class="text-xs text-[#d4d4d4] space-y-2"></div>
+          <div class="mt-6">
+            <div class="label mb-2">English reference frequency</div>
+            <p class="text-xs text-[#4b5563] leading-relaxed">E T A O I N S R H D L U C M F Y W G P B V K X J Q Z</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ========== Tab management ==========
+let activeTab = 'cipher';
+function switchTab(t) {
+  activeTab = t;
+  ['cipher','brute','freq'].forEach(id => {
+    document.getElementById('panel-'+id).classList.toggle('hidden', id!==t);
+    document.getElementById('tab-'+id).classList.toggle('active', id===t);
+  });
+}
+
+// ========== Cipher panel ==========
+let cipherDir = 'encode';
+let xorOutMode = 'hex';
+let currentCipher = 'caesar';
+
+function updateCipherOptions() {
+  currentCipher = document.getElementById('cipher-select').value;
+  document.getElementById('opt-caesar').classList.toggle('hidden', currentCipher !== 'caesar');
+  document.getElementById('opt-rails').classList.toggle('hidden', currentCipher !== 'railfence');
+  document.getElementById('opt-key').classList.toggle('hidden', !['vigenere','xor','playfair','rc4'].includes(currentCipher));
+  document.getElementById('opt-xor-mode').classList.toggle('hidden', currentCipher !== 'xor');
+  if (document.getElementById('cipher-live').checked) runCipher();
+}
+
+function setCipherDir(dir) {
+  cipherDir = dir;
+  document.getElementById('cdir-enc').classList.toggle('active', dir==='encode');
+  document.getElementById('cdir-dec').classList.toggle('active', dir==='decode');
+  if (document.getElementById('cipher-live').checked) runCipher();
+}
+
+function setXorOut(mode) {
+  xorOutMode = mode;
+  document.getElementById('xor-out-hex').classList.toggle('active', mode==='hex');
+  document.getElementById('xor-out-text').classList.toggle('active', mode==='text');
+}
+
+// Live updates
+['cipher-in','caesar-shift','cipher-key','rail-count'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', () => {
+    if (document.getElementById('cipher-live').checked) runCipher();
+  });
+});
+
+// ---- Cipher implementations ----
+function caesarEncode(text, shift) {
+  shift = ((shift % 26) + 26) % 26;
+  return text.replace(/[a-z]/g, c => String.fromCharCode((c.charCodeAt(0)-97+shift)%26+97))
+             .replace(/[A-Z]/g, c => String.fromCharCode((c.charCodeAt(0)-65+shift)%26+65));
+}
+function caesarDecode(text, shift) { return caesarEncode(text, -shift); }
+
+function vigenereEncode(text, key) {
+  key = key.toUpperCase().replace(/[^A-Z]/g,'');
+  if (!key.length) throw new Error('Key must contain letters');
+  let ki = 0, out = '';
+  for (const ch of text) {
+    if (/[a-z]/.test(ch)) { out += String.fromCharCode((ch.charCodeAt(0)-97+(key.charCodeAt(ki%key.length)-65))%26+97); ki++; }
+    else if (/[A-Z]/.test(ch)) { out += String.fromCharCode((ch.charCodeAt(0)-65+(key.charCodeAt(ki%key.length)-65))%26+65); ki++; }
+    else out += ch;
+  }
+  return out;
+}
+function vigenereDecode(text, key) {
+  key = key.toUpperCase().replace(/[^A-Z]/g,'');
+  if (!key.length) throw new Error('Key must contain letters');
+  let ki = 0, out = '';
+  for (const ch of text) {
+    if (/[a-z]/.test(ch)) { out += String.fromCharCode((ch.charCodeAt(0)-97-(key.charCodeAt(ki%key.length)-65)+26)%26+97); ki++; }
+    else if (/[A-Z]/.test(ch)) { out += String.fromCharCode((ch.charCodeAt(0)-65-(key.charCodeAt(ki%key.length)-65)+26)%26+65); ki++; }
+    else out += ch;
+  }
+  return out;
+}
+
+function xorEncode(text, key) {
+  const textBytes = new TextEncoder().encode(text);
+  const keyBytes = new TextEncoder().encode(key);
+  const out = textBytes.map((b,i) => b ^ keyBytes[i % keyBytes.length]);
+  return Array.from(out).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function xorDecode(hex, key) {
+  hex = hex.trim().replace(/\s+/g,'');
+  if (hex.length % 2 !== 0) throw new Error('Odd hex length');
+  const raw = Uint8Array.from({length:hex.length/2},(_,i)=>parseInt(hex.slice(i*2,i*2+2),16));
+  const keyBytes = new TextEncoder().encode(key);
+  const out = raw.map((b,i) => b ^ keyBytes[i % keyBytes.length]);
+  return new TextDecoder().decode(out);
+}
+
+function atbash(text) {
+  return text.replace(/[a-z]/g, c => String.fromCharCode(122-(c.charCodeAt(0)-97)))
+             .replace(/[A-Z]/g, c => String.fromCharCode(90-(c.charCodeAt(0)-65)));
+}
+
+function railFenceEncode(text, rails) {
+  if (rails < 2) return text;
+  const fence = Array.from({length: rails}, () => []);
+  let rail = 0, dir = 1;
+  for (const ch of text) {
+    fence[rail].push(ch);
+    if (rail === 0) dir = 1;
+    else if (rail === rails - 1) dir = -1;
+    rail += dir;
+  }
+  return fence.map(r => r.join('')).join('');
+}
+function railFenceDecode(text, rails) {
+  if (rails < 2) return text;
+  const n = text.length;
+  const pattern = [];
+  let rail = 0, dir = 1;
+  for (let i = 0; i < n; i++) {
+    pattern.push(rail);
+    if (rail === 0) dir = 1;
+    else if (rail === rails - 1) dir = -1;
+    rail += dir;
+  }
+  const indices = Array.from({length: n}, (_, i) => i).sort((a, b) => pattern[a] - pattern[b]);
+  const result = Array(n);
+  for (let i = 0; i < n; i++) result[indices[i]] = text[i];
+  return result.join('');
+}
+
+function _playfairKeysquare(key) {
+  key = key.toUpperCase().replace(/J/g, 'I').replace(/[^A-Z]/g, '');
+  const seen = new Set();
+  const square = [];
+  for (const ch of key + 'ABCDEFGHIKLMNOPQRSTUVWXYZ') {
+    if (!seen.has(ch)) { seen.add(ch); square.push(ch); }
+  }
+  return square;
+}
+function _playfairProcess(text, square, encode) {
+  text = text.toUpperCase().replace(/J/g, 'I').replace(/[^A-Z]/g, '');
+  const pairs = [];
+  let i = 0;
+  while (i < text.length) {
+    const a = text[i];
+    const b = i + 1 < text.length ? text[i + 1] : 'X';
+    if (a === b) { pairs.push([a, 'X']); i++; }
+    else { pairs.push([a, b]); i += 2; }
+  }
+  const shift = encode ? 1 : 4; // modulo 5 means -1 is +4
+  return pairs.map(([a, b]) => {
+    const idxA = square.indexOf(a), idxB = square.indexOf(b);
+    const rA = Math.floor(idxA / 5), cA = idxA % 5;
+    const rB = Math.floor(idxB / 5), cB = idxB % 5;
+    if (rA === rB) return square[rA * 5 + (cA + shift) % 5] + square[rB * 5 + (cB + shift) % 5];
+    if (cA === cB) return square[((rA + shift) % 5) * 5 + cA] + square[((rB + shift) % 5) * 5 + cB];
+    return square[rA * 5 + cB] + square[rB * 5 + cA];
+  }).join('');
+}
+function playfairEncode(text, key) { return _playfairProcess(text, _playfairKeysquare(key), true); }
+function playfairDecode(text, key) { return _playfairProcess(text, _playfairKeysquare(key), false); }
+
+const _BACON = {A:'AAAAA',B:'AAAAB',C:'AAABA',D:'AAABB',E:'AABAA',F:'AABAB',G:'AABBA',H:'AABBB',I:'ABAAA',J:'ABAAA',K:'ABAAB',L:'ABABA',M:'ABABB',N:'ABBAA',O:'ABBAB',P:'ABBBA',Q:'ABBBB',R:'BAAAA',S:'BAAAB',T:'BAABA',U:'BAABB',V:'BABAA',W:'BABAB',X:'BABBA',Y:'BABBB',Z:'BAAAA'};
+const _BACON_REV = Object.fromEntries(Object.entries(_BACON).filter(([k,v]) => k !== 'J' && k !== 'Z').map(([k,v])=>[v,k]));
+function baconianEncode(text) { return text.toUpperCase().split('').map(c => _BACON[c] || (c === ' ' ? ' ' : '')).filter(Boolean).join(' ').trim(); }
+function baconianDecode(text) {
+  return text.toUpperCase().replace(/0/g, 'A').replace(/1/g, 'B').trim().split(/\s+/).map(tok => _BACON_REV[tok] || '?').join('');
+}
+
+function _rc4Keystream(keyBytes, length) {
+  const S = Array.from({length: 256}, (_, i) => i);
+  let j = 0;
+  for (let i = 0; i < 256; i++) {
+    j = (j + S[i] + keyBytes[i % keyBytes.length]) % 256;
+    [S[i], S[j]] = [S[j], S[i]];
+  }
+  const ks = new Uint8Array(length);
+  let i = 0; j = 0;
+  for (let k = 0; k < length; k++) {
+    i = (i + 1) % 256;
+    j = (j + S[i]) % 256;
+    [S[i], S[j]] = [S[j], S[i]];
+    ks[k] = S[(S[i] + S[j]) % 256];
+  }
+  return ks;
+}
+function rc4Encode(text, key) {
+  const textBytes = new TextEncoder().encode(text);
+  const keyBytes = new TextEncoder().encode(key);
+  const ks = _rc4Keystream(keyBytes, textBytes.length);
+  return Array.from(textBytes.map((b,i) => b ^ ks[i])).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function rc4Decode(hex, key) {
+  hex = hex.trim().replace(/\s+/g,'');
+  if (hex.length % 2 !== 0) throw new Error('Odd hex length');
+  const raw = Uint8Array.from({length:hex.length/2},(_,i)=>parseInt(hex.slice(i*2,i*2+2),16));
+  const keyBytes = new TextEncoder().encode(key);
+  const ks = _rc4Keystream(keyBytes, raw.length);
+  const out = raw.map((b,i) => b ^ ks[i]);
+  return new TextDecoder().decode(out);
+}
+
+function runCipher() {
+  const input = document.getElementById('cipher-in').value;
+  const errEl = document.getElementById('cipher-error');
+  errEl.textContent = '';
+  const key = document.getElementById('cipher-key').value;
+  const shift = parseInt(document.getElementById('caesar-shift').value)||13;
+  const rails = parseInt(document.getElementById('rail-count').value)||3;
+  try {
+    let result;
+    if (currentCipher === 'caesar')
+      result = cipherDir === 'encode' ? caesarEncode(input, shift) : caesarDecode(input, shift);
+    else if (currentCipher === 'vigenere')
+      result = cipherDir === 'encode' ? vigenereEncode(input, key) : vigenereDecode(input, key);
+    else if (currentCipher === 'xor')
+      result = cipherDir === 'encode' ? xorEncode(input, key) : xorDecode(input, key);
+    else if (currentCipher === 'atbash')
+      result = atbash(input); // symmetric
+    else if (currentCipher === 'railfence')
+      result = cipherDir === 'encode' ? railFenceEncode(input, rails) : railFenceDecode(input, rails);
+    else if (currentCipher === 'playfair')
+      result = cipherDir === 'encode' ? playfairEncode(input, key) : playfairDecode(input, key);
+    else if (currentCipher === 'baconian')
+      result = cipherDir === 'encode' ? baconianEncode(input) : baconianDecode(input);
+    else if (currentCipher === 'rc4')
+      result = cipherDir === 'encode' ? rc4Encode(input, key) : rc4Decode(input, key);
+    document.getElementById('cipher-out').value = result;
+  } catch(e) {
+    errEl.textContent = 'Error: ' + e.message;
+  }
+}
+
+function swapCipher() {
+  const a = document.getElementById('cipher-in').value;
+  const b = document.getElementById('cipher-out').value;
+  document.getElementById('cipher-in').value = b;
+  document.getElementById('cipher-out').value = a;
+  setCipherDir(cipherDir === 'encode' ? 'decode' : 'encode');
+}
+function clearCipher() {
+  document.getElementById('cipher-in').value = '';
+  document.getElementById('cipher-out').value = '';
+  document.getElementById('cipher-error').textContent = '';
+}
+function copyEl(id) {
+  const el = document.getElementById(id);
+  navigator.clipboard.writeText(el.value).catch(()=>{el.select();document.execCommand('copy');});
+}
+
+// ========== Brute-force panel ==========
+let bruteType = 'caesar';
+function setBruteType(t) {
+  bruteType = t;
+  document.getElementById('btype-caesar').classList.toggle('active', t==='caesar');
+  document.getElementById('btype-xor').classList.toggle('active', t==='xor');
+  document.getElementById('brute-xor-note').classList.toggle('hidden', t==='caesar');
+  document.getElementById('brute-results').classList.add('hidden');
+}
+
+const ENGLISH_FREQ_ORDER = 'etaoinsrhdlucmfywgpbvkxjqz';
+function scoreEnglish(text) {
+  const weights = {};
+  ENGLISH_FREQ_ORDER.split('').forEach((c,i) => weights[c] = 26-i);
+  const lower = text.toLowerCase();
+  let alpha = 0, score = 0;
+  for (const ch of lower) { if (/[a-z]/.test(ch)) { alpha++; score += weights[ch]||0; } }
+  if (!alpha) return 0;
+  const printable = [...text].filter(c=>c.charCodeAt(0)>=32&&c.charCodeAt(0)<127).length;
+  return (score/alpha) * (printable/Math.max(text.length,1));
+}
+
+function runBrute() {
+  const ct = document.getElementById('brute-input').value;
+  const top = parseInt(document.getElementById('brute-top').value)||10;
+  document.getElementById('brute-error').textContent = '';
+  document.getElementById('brute-results').classList.add('hidden');
+
+  if (bruteType === 'caesar') {
+    const results = [];
+    for (let s=1; s<=25; s++) {
+      const pt = caesarDecode(ct, s);
+      results.push({label:`shift ${s}`, key:s, score:scoreEnglish(pt), plain:pt});
+    }
+    results.sort((a,b)=>b.score-a.score);
+    renderBrute(results.slice(0,top), 'SHIFT', 'SCORE', 'PLAINTEXT');
+  } else {
+    // XOR single-byte
+    const hex = ct.trim().replace(/\s+/g,'');
+    if (!hex || hex.length % 2 !== 0) {
+      document.getElementById('brute-error').textContent = 'Error: input must be even-length hex';
+      return;
+    }
+    const raw = Uint8Array.from({length:hex.length/2},(_,i)=>parseInt(hex.slice(i*2,i*2+2),16));
+    const results = [];
+    for (let k=0; k<256; k++) {
+      const dec = raw.map(b=>b^k);
+      let pt;
+      try { pt = new TextDecoder('utf-8',{fatal:false}).decode(dec); }
+      catch { pt = String.fromCharCode(...dec); }
+      results.push({label:`0x${k.toString(16).padStart(2,'0')}`, key:k, score:scoreEnglish(pt), plain:pt, keyChar: k>=32&&k<127?String.fromCharCode(k):'.'});
+    }
+    results.sort((a,b)=>b.score-a.score);
+    renderBrute(results.slice(0,top), 'KEY', 'SCORE', 'PLAINTEXT', true);
+  }
+}
+
+function renderBrute(results, col1, col2, col3, showChar=false) {
+  const hdr = document.getElementById('brute-header');
+  hdr.innerHTML = `<span>${col1}</span>${showChar?'<span>CHAR</span>':''}<span>${col2}</span><span>${col3}</span>`;
+  if (showChar) hdr.style.gridTemplateColumns = '70px 40px 80px 1fr';
+  else hdr.style.gridTemplateColumns = '70px 80px 1fr';
+
+  const maxScore = results[0]?.score || 1;
+  const container = document.getElementById('brute-rows');
+  container.innerHTML = '';
+  results.forEach((r,i) => {
+    const row = document.createElement('div');
+    row.className = 'brute-row';
+    if (showChar) row.style.gridTemplateColumns = '70px 40px 80px 1fr';
+    else row.style.gridTemplateColumns = '70px 80px 1fr';
+    const barW = Math.round((r.score/maxScore)*80);
+    const charCell = showChar ? `<span style="color:var(--accent)">${r.keyChar}</span>` : '';
+    row.innerHTML = `
+      <span style="color:var(--accent)">${r.label}</span>
+      ${charCell}
+      <span class="score-bar-wrap">
+        <span class="score-bar" style="width:${barW}px"></span>
+        <span style="font-size:0.65rem;color:var(--text-dim)">${r.score.toFixed(2)}</span>
+      </span>
+      <span class="plain-preview" title="${r.plain.replace(/"/g,'&quot;')}">${escHtml(r.plain.replace(/\n/g,' ').slice(0,80))}</span>
+    `;
+    if (i===0) row.style.borderLeft = '2px solid var(--accent)';
+    container.appendChild(row);
+  });
+  document.getElementById('brute-results').classList.remove('hidden');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ========== Frequency analysis panel ==========
+document.getElementById('freq-input').addEventListener('input', ()=>{
+  if (document.getElementById('freq-live').checked) runFreq();
+});
+
+function runFreq() {
+  const text = document.getElementById('freq-input').value;
+  if (!text) { document.getElementById('freq-results').classList.add('hidden'); return; }
+
+  const counts = {};
+  let total = 0;
+  for (const ch of text) {
+    if (ch.charCodeAt(0) >= 32) { counts[ch] = (counts[ch]||0)+1; total++; }
+  }
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,30);
+  const maxCount = sorted[0]?.[1] || 1;
+
+  // Entropy
+  const entropy = -Object.values(counts).reduce((acc,c)=>{
+    const p=c/total; return acc+p*Math.log2(p);
+  }, 0);
+
+  // Letter counts
+  const letterCounts = {};
+  for (const ch of text.toLowerCase()) {
+    if (/[a-z]/.test(ch)) letterCounts[ch] = (letterCounts[ch]||0)+1;
+  }
+  const totalLetters = Object.values(letterCounts).reduce((a,b)=>a+b,0);
+
+  // Bar chart (top 30 chars)
+  const chart = document.getElementById('freq-chart');
+  chart.innerHTML = '';
+  sorted.forEach(([ch, count]) => {
+    const pct = (count/total*100).toFixed(1);
+    const barW = (count/maxCount*100).toFixed(1);
+    const display = ch === ' ' ? 'SP' : ch === '\t' ? 'TAB' : escHtml(ch);
+    const row = document.createElement('div');
+    row.className = 'freq-row';
+    row.innerHTML = `
+      <span class="freq-char">${display}</span>
+      <div class="freq-bar-bg"><div class="freq-bar-fill" style="width:${barW}%"></div></div>
+      <span class="freq-pct">${pct}%</span>
+    `;
+    chart.appendChild(row);
+  });
+
+  // Stats
+  const statsEl = document.getElementById('freq-stats');
+  statsEl.innerHTML = `
+    <div><span class="text-[#6b7280]">total chars:  </span>${total}</div>
+    <div><span class="text-[#6b7280]">unique chars: </span>${Object.keys(counts).length}</div>
+    <div><span class="text-[#6b7280]">total letters:</span>${totalLetters}</div>
+    <div><span class="text-[#6b7280]">entropy:      </span>${entropy.toFixed(4)} bits/char</div>
+    <div class="mt-4 text-[#4b5563] text-xs">Top 5 characters</div>
+    ${sorted.slice(0,5).map(([ch,c])=>{
+      const display = ch===' '?'SPACE':ch==='\t'?'TAB':escHtml(ch);
+      return `<div><span style="color:var(--accent)">${display}</span> — ${c} (${(c/total*100).toFixed(1)}%)</div>`;
+    }).join('')}
+  `;
+
+  document.getElementById('freq-results').classList.remove('hidden');
+}
+</script>
+</body>
+</html>

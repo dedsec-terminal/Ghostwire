@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hashing — Ghostwire</title>
+<meta name="description" content="Client-side hashing: MD5, SHA-1, SHA-256, SHA-512, SHA3-256, CRC32, HMAC. Hash text or files. All computation is local.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --bg:#0a0a0a;--surface:#111111;--surface2:#161616;
+    --border:#1e1e1e;--accent:#00ff88;--text:#d4d4d4;
+    --text-dim:#6b7280;--text-bright:#f0f0f0;
+  }
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:'JetBrains Mono',monospace;margin:0;min-height:100vh;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.02) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(0,255,136,0.02) 1px,transparent 1px);
+    background-size:40px 40px;
+  }
+  textarea,input[type="text"],input[type="password"]{
+    background:var(--surface2);border:1px solid var(--border);
+    color:var(--text-bright);font-family:'JetBrains Mono',monospace;
+    font-size:0.8rem;resize:vertical;outline:none;
+    transition:border-color 0.15s;width:100%;padding:12px;
+  }
+  textarea:focus,input:focus{border-color:var(--accent);}
+  button.run{
+    background:var(--accent);color:#000;font-family:'JetBrains Mono',monospace;
+    font-size:0.75rem;font-weight:700;padding:10px 24px;
+    border:none;cursor:pointer;letter-spacing:0.06em;
+    transition:background 0.15s,transform 0.1s;
+  }
+  button.run:hover{background:#00cc6a;transform:translateY(-1px);}
+  .chip{
+    display:inline-block;font-size:0.6rem;padding:3px 9px;
+    border:1px solid var(--border);color:var(--text-dim);cursor:pointer;
+    transition:border-color 0.12s,color 0.12s,background 0.12s;
+    user-select:none;
+  }
+  .chip:hover,.chip.active{border-color:var(--accent);color:var(--accent);background:rgba(0,255,136,0.06);}
+  .label{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-dim);margin-bottom:6px;}
+  .result-row{
+    display:flex;align-items:flex-start;gap:12px;padding:10px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .result-row:last-child{border-bottom:none;}
+  .algo-label{font-size:0.65rem;color:var(--text-dim);width:90px;flex-shrink:0;padding-top:2px;text-transform:uppercase;letter-spacing:0.06em;}
+  .hash-val{font-size:0.78rem;color:var(--accent);word-break:break-all;flex:1;cursor:pointer;}
+  .hash-val:hover{text-decoration:underline;text-decoration-color:rgba(0,255,136,0.4);}
+  .copy-btn{
+    font-size:0.6rem;padding:3px 8px;border:1px solid var(--border);
+    color:var(--text-dim);background:transparent;cursor:pointer;white-space:nowrap;
+    font-family:'JetBrains Mono',monospace;transition:border-color 0.12s,color 0.12s;flex-shrink:0;
+  }
+  .copy-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .error{color:#ff4444;font-size:0.75rem;}
+  #drop-zone{
+    border:1px dashed var(--border);padding:32px;text-align:center;
+    color:var(--text-dim);font-size:0.75rem;cursor:pointer;
+    transition:border-color 0.15s,background 0.15s;
+  }
+  #drop-zone:hover,#drop-zone.drag-over{border-color:var(--accent);background:rgba(0,255,136,0.04);}
+  #drop-zone input{display:none;}
+  .progress-bar{height:2px;background:var(--border);margin-top:8px;}
+  .progress-fill{height:100%;background:var(--accent);width:0%;transition:width 0.2s;}
+  .tab{
+    font-size:0.7rem;padding:7px 16px;border:1px solid var(--border);
+    color:var(--text-dim);cursor:pointer;background:transparent;
+    font-family:'JetBrains Mono',monospace;transition:all 0.12s;
+  }
+  .tab.active{background:rgba(0,255,136,0.1);border-color:var(--accent);color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="max-w-4xl mx-auto px-6 py-12">
+
+  <!-- Nav -->
+  <nav class="mb-10 flex items-center gap-4 text-xs text-[#4b5563]">
+    <a href="index.html" class="text-[#6b7280] hover:text-[#00ff88] transition-colors">ghostwire</a>
+    <span>/</span>
+    <span class="text-[#00ff88]">hashing</span>
+  </nav>
+
+  <!-- Title -->
+  <div class="flex items-center gap-3 mb-8">
+    <div class="w-1.5 h-6 bg-[#00ff88]"></div>
+    <h1 class="text-xl font-bold text-[#f0f0f0] tracking-tight">HASHING</h1>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex gap-1 mb-8">
+    <button class="tab active" id="tab-text" onclick="switchTab('text')">text input</button>
+    <button class="tab" id="tab-file" onclick="switchTab('file')">file input</button>
+  </div>
+
+  <!-- Text input -->
+  <div id="panel-text">
+    <div class="mb-4">
+      <div class="label">Input text</div>
+      <textarea id="text-input" rows="5" placeholder="Enter text to hash..."></textarea>
+    </div>
+    <div class="mb-4">
+      <div class="label">HMAC key (optional — leave blank to compute plain hashes)</div>
+      <input type="password" id="hmac-key" placeholder="hmac key..." style="resize:none">
+    </div>
+    <div class="mb-4">
+      <div class="label">Algorithms</div>
+      <div class="flex flex-wrap gap-2" id="algo-chips">
+        <span class="chip active" data-algo="MD5">MD5</span>
+        <span class="chip active" data-algo="SHA-1">SHA-1</span>
+        <span class="chip active" data-algo="SHA-256">SHA-256</span>
+        <span class="chip active" data-algo="SHA-512">SHA-512</span>
+        <span class="chip active" data-algo="SHA3-256">SHA3-256</span>
+        <span class="chip active" data-algo="CRC32">CRC32</span>
+        <span class="chip" data-algo="NTLM">NTLM</span>
+      </div>
+      <p class="text-[#4b5563] text-xs mt-2">Note: HMAC does not support CRC32, MD5, or NTLM in the browser (Web Crypto limitation). Those will show plain hashes.</p>
+    </div>
+    <div class="flex gap-3 mb-6">
+      <button class="run" onclick="hashText()">HASH</button>
+      <label class="flex items-center gap-2 text-xs text-[#6b7280] cursor-pointer">
+        <input type="checkbox" id="live-hash" checked style="accent-color:#00ff88">
+        live update
+      </label>
+    </div>
+  </div>
+
+  <!-- File input -->
+  <div id="panel-file" class="hidden">
+    <div id="drop-zone" onclick="document.getElementById('file-input').click()"
+         ondragover="event.preventDefault();this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="handleDrop(event)">
+      <input type="file" id="file-input" onchange="handleFileSelect(event)">
+      <div id="drop-text">Click or drag a file here to hash it</div>
+      <div class="progress-bar mt-4"><div class="progress-fill" id="file-progress"></div></div>
+    </div>
+    <p class="text-xs text-[#4b5563] mt-3">File is read locally. Nothing is uploaded.</p>
+  </div>
+
+  <!-- Results -->
+  <div id="results" class="mt-6 bg-[#111] border border-[#1e1e1e] p-4 hidden">
+    <div class="label mb-4">Results</div>
+    <div id="result-rows"></div>
+  </div>
+
+  <div id="error-msg" class="error mt-3"></div>
+
+  <!-- Test vectors -->
+  <div class="mt-12">
+    <div class="label mb-3">Test vectors — verify known values</div>
+    <div class="bg-[#111] border border-[#1e1e1e] p-4">
+      <p class="text-xs text-[#6b7280] mb-4">Click a vector to load it, then run HASH to verify.</p>
+      <div class="flex flex-wrap gap-2">
+        <button class="copy-btn" onclick="loadVector('abc')">SHA256("abc") = ba7816bf…015ad</button>
+        <button class="copy-btn" onclick="loadVector('')">SHA256("") = e3b0c442…b855</button>
+        <button class="copy-btn" onclick="loadVector('The quick brown fox jumps over the lazy dog')">SHA1(fox) = 2fd4e1c6…eb12</button>
+      </div>
+      <div id="vector-result" class="mt-4 text-xs text-[#6b7280]"></div>
+    </div>
+  </div>
+  <!-- Hash identifier -->
+  <div class="mt-8">
+    <div class="label mb-3">Hash identifier</div>
+    <div class="bg-[#111] border border-[#1e1e1e] p-4">
+      <p class="text-xs text-[#6b7280] mb-4">Paste a hash string to identify its likely algorithm by length and character set.</p>
+      <textarea id="identify-input" rows="2" placeholder="Paste hash here..." style="resize:none"></textarea>
+      <button class="run mt-3" onclick="identifyHash()">IDENTIFY</button>
+      <div id="identify-result" class="mt-4 text-xs"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---- MD5 (pure JS) ----
+// Reference implementation — RFC 1321
+function md5(input) {
+  const str = new TextEncoder().encode(input);
+  function safeAdd(x, y) { const lsw=(x&0xffff)+(y&0xffff); return (((x>>16)+(y>>16)+(lsw>>16))<<16)|(lsw&0xffff); }
+  function bitRotateLeft(num, cnt) { return (num<<cnt)|(num>>>(32-cnt)); }
+  function md5cmn(q,a,b,x,s,t) { return safeAdd(bitRotateLeft(safeAdd(safeAdd(a,q),safeAdd(x,t)),s),b); }
+  function md5ff(a,b,c,d,x,s,t){return md5cmn((b&c)|((~b)&d),a,b,x,s,t);}
+  function md5gg(a,b,c,d,x,s,t){return md5cmn((b&d)|(c&(~d)),a,b,x,s,t);}
+  function md5hh(a,b,c,d,x,s,t){return md5cmn(b^c^d,a,b,x,s,t);}
+  function md5ii(a,b,c,d,x,s,t){return md5cmn(c^(b|(~d)),a,b,x,s,t);}
+
+  const msgLen = str.length;
+  const wordCount = ((msgLen + 8) >> 6) + 1;
+  const M = new Int32Array(wordCount * 16);
+  for (let i = 0; i < msgLen; i++) M[i>>2] |= str[i] << ((i%4)*8);
+  M[msgLen>>2] |= 0x80 << ((msgLen%4)*8);
+  M[wordCount*16-2] = msgLen*8;
+
+  let a=1732584193,b=-271733879,c=-1732584194,d=271733878;
+  for (let i=0; i<M.length; i+=16) {
+    let [aa,bb,cc,dd]=[a,b,c,d];
+    a=md5ff(a,b,c,d,M[i+0],7,-680876936);d=md5ff(d,a,b,c,M[i+1],12,-389564586);c=md5ff(c,d,a,b,M[i+2],17,606105819);b=md5ff(b,c,d,a,M[i+3],22,-1044525330);
+    a=md5ff(a,b,c,d,M[i+4],7,-176418897);d=md5ff(d,a,b,c,M[i+5],12,1200080426);c=md5ff(c,d,a,b,M[i+6],17,-1473231341);b=md5ff(b,c,d,a,M[i+7],22,-45705983);
+    a=md5ff(a,b,c,d,M[i+8],7,1770035416);d=md5ff(d,a,b,c,M[i+9],12,-1958414417);c=md5ff(c,d,a,b,M[i+10],17,-42063);b=md5ff(b,c,d,a,M[i+11],22,-1990404162);
+    a=md5ff(a,b,c,d,M[i+12],7,1804603682);d=md5ff(d,a,b,c,M[i+13],12,-40341101);c=md5ff(c,d,a,b,M[i+14],17,-1502002290);b=md5ff(b,c,d,a,M[i+15],22,1236535329);
+    a=md5gg(a,b,c,d,M[i+1],5,-165796510);d=md5gg(d,a,b,c,M[i+6],9,-1069501632);c=md5gg(c,d,a,b,M[i+11],14,643717713);b=md5gg(b,c,d,a,M[i+0],20,-373897302);
+    a=md5gg(a,b,c,d,M[i+5],5,-701558691);d=md5gg(d,a,b,c,M[i+10],9,38016083);c=md5gg(c,d,a,b,M[i+15],14,-660478335);b=md5gg(b,c,d,a,M[i+4],20,-405537848);
+    a=md5gg(a,b,c,d,M[i+9],5,568446438);d=md5gg(d,a,b,c,M[i+14],9,-1019803690);c=md5gg(c,d,a,b,M[i+3],14,-187363961);b=md5gg(b,c,d,a,M[i+8],20,1163531501);
+    a=md5gg(a,b,c,d,M[i+13],5,-1444681467);d=md5gg(d,a,b,c,M[i+2],9,-51403784);c=md5gg(c,d,a,b,M[i+7],14,1735328473);b=md5gg(b,c,d,a,M[i+12],20,-1926607734);
+    a=md5hh(a,b,c,d,M[i+5],4,-378558);d=md5hh(d,a,b,c,M[i+8],11,-2022574463);c=md5hh(c,d,a,b,M[i+11],16,1839030562);b=md5hh(b,c,d,a,M[i+14],23,-35309556);
+    a=md5hh(a,b,c,d,M[i+1],4,-1530992060);d=md5hh(d,a,b,c,M[i+4],11,1272893353);c=md5hh(c,d,a,b,M[i+7],16,-155497632);b=md5hh(b,c,d,a,M[i+10],23,-1094730640);
+    a=md5hh(a,b,c,d,M[i+13],4,681279174);d=md5hh(d,a,b,c,M[i+0],11,-358537222);c=md5hh(c,d,a,b,M[i+3],16,-722521979);b=md5hh(b,c,d,a,M[i+6],23,76029189);
+    a=md5hh(a,b,c,d,M[i+9],4,-640364487);d=md5hh(d,a,b,c,M[i+12],11,-421815835);c=md5hh(c,d,a,b,M[i+15],16,530742520);b=md5hh(b,c,d,a,M[i+2],23,-995338651);
+    a=md5ii(a,b,c,d,M[i+0],6,-198630844);d=md5ii(d,a,b,c,M[i+7],10,1126891415);c=md5ii(c,d,a,b,M[i+14],15,-1416354905);b=md5ii(b,c,d,a,M[i+5],21,-57434055);
+    a=md5ii(a,b,c,d,M[i+12],6,1700485571);d=md5ii(d,a,b,c,M[i+3],10,-1894986606);c=md5ii(c,d,a,b,M[i+10],15,-1051523);b=md5ii(b,c,d,a,M[i+1],21,-2054922799);
+    a=md5ii(a,b,c,d,M[i+8],6,1873313359);d=md5ii(d,a,b,c,M[i+15],10,-30611744);c=md5ii(c,d,a,b,M[i+6],15,-1560198380);b=md5ii(b,c,d,a,M[i+13],21,1309151649);
+    a=md5ii(a,b,c,d,M[i+4],6,-145523070);d=md5ii(d,a,b,c,M[i+11],10,-1120210379);c=md5ii(c,d,a,b,M[i+2],15,718787259);b=md5ii(b,c,d,a,M[i+9],21,-343485551);
+    a=safeAdd(a,aa);b=safeAdd(b,bb);c=safeAdd(c,cc);d=safeAdd(d,dd);
+  }
+  function i2hex(n) { return ('0'+((n&0xff).toString(16))).slice(-2)+('0'+(((n>>8)&0xff).toString(16))).slice(-2)+('0'+(((n>>16)&0xff).toString(16))).slice(-2)+('0'+(((n>>24)&0xff).toString(16))).slice(-2); }
+  return i2hex(a)+i2hex(b)+i2hex(c)+i2hex(d);
+}
+
+// ---- CRC32 ----
+const CRC32_TABLE = (()=>{
+  const t=new Uint32Array(256);
+  for(let i=0;i<256;i++){
+    let c=i;
+    for(let j=0;j<8;j++) c=c&1?(0xEDB88320^(c>>>1)):(c>>>1);
+    t[i]=c;
+  }
+  return t;
+})();
+function crc32(bytes) {
+  let crc=0xFFFFFFFF;
+  for(const b of bytes) crc=CRC32_TABLE[(crc^b)&0xff]^(crc>>>8);
+  return ((crc^0xFFFFFFFF)>>>0).toString(16).padStart(8,'0');
+}
+
+// ---- Web Crypto helpers ----
+async function webcryptoHash(algo, data) {
+  const buf = await crypto.subtle.digest(algo, data);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function webcryptoHMAC(algo, keyStr, data) {
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(keyStr),
+    {name:'HMAC', hash:algo}, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', keyMaterial, data);
+  return Array.from(new Uint8Array(sig)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// ---- SHA3-256 (pure JS Keccak) ----
+// Keccak-256 with SHA3 padding (0x06)
+const SHA3_RC = [
+  [0x00000001,0x00000000],[0x00008082,0x00000000],[0x0000808A,0x80000000],[0x80008000,0x80000000],
+  [0x0000808B,0x00000000],[0x80000001,0x00000000],[0x80008081,0x80000000],[0x00008009,0x80000000],
+  [0x0000008A,0x00000000],[0x00000088,0x00000000],[0x80008009,0x00000000],[0x8000000A,0x00000000],
+  [0x8000808B,0x00000000],[0x0000008B,0x80000000],[0x00008089,0x80000000],[0x00008003,0x80000000],
+  [0x00008002,0x80000000],[0x00000080,0x80000000],[0x0000800A,0x00000000],[0x8000000A,0x80000000],
+  [0x80008081,0x80000000],[0x00008080,0x80000000],[0x80000001,0x00000000],[0x80008008,0x80000000],
+];
+function sha3_256(msgBytes) {
+  const rate = 136; // 1088 bits / 8
+  const outputLen = 32;
+  const state = new Uint32Array(50);
+  const lanes = new Uint32Array(50);
+  function rotl64(lo, hi, n) {
+    if (n === 0) return [lo, hi];
+    if (n < 32) return [(lo<<n)|(hi>>>(32-n)),(hi<<n)|(lo>>>(32-n))];
+    n -= 32;
+    if (n === 0) return [hi, lo];
+    return [(hi<<n)|(lo>>>(32-n)),(lo<<n)|(hi>>>(32-n))];
+  }
+  function keccakF(s) {
+    const C=new Uint32Array(10), D=new Uint32Array(10);
+    for (let r=0; r<24; r++) {
+      for (let x=0; x<5; x++) { C[2*x]=s[2*x]^s[2*(x+5)]^s[2*(x+10)]^s[2*(x+15)]^s[2*(x+20)]; C[2*x+1]=s[2*x+1]^s[2*(x+5)+1]^s[2*(x+10)+1]^s[2*(x+15)+1]^s[2*(x+20)+1]; }
+      for (let x=0; x<5; x++) {
+        const [tl,th]=rotl64(C[((x+1)%5)*2],C[((x+1)%5)*2+1],1);
+        D[2*x]=C[((x+4)%5)*2]^tl; D[2*x+1]=C[((x+4)%5)*2+1]^th;
+      }
+      for (let x=0; x<5; x++) for (let y=0; y<5; y++) { s[(y*5+x)*2]^=D[x*2]; s[(y*5+x)*2+1]^=D[x*2+1]; }
+      const PIPOS=[0,10,20,5,15,1,11,21,6,16,2,12,22,7,17,3,13,23,8,18,4,14,24,9,19];
+      const ROT=[0,1,62,28,27,36,44,6,55,20,3,10,43,25,39,41,45,15,21,8,18,2,61,56,14];
+      for (let i=0; i<25; i++) { const [rl,rh]=rotl64(s[PIPOS[i]*2],s[PIPOS[i]*2+1],ROT[i]); lanes[i*2]=rl; lanes[i*2+1]=rh; }
+      for (let x=0; x<5; x++) for (let y=0; y<5; y++) {
+        const i=y*5+x, j=((y+1)%5)*5+x, k=((y+2)%5)*5+x;
+        s[i*2]=lanes[i*2]^((~lanes[j*2])&lanes[k*2]);
+        s[i*2+1]=lanes[i*2+1]^((~lanes[j*2+1])&lanes[k*2+1]);
+      }
+      s[0]^=SHA3_RC[r][0]; s[1]^=SHA3_RC[r][1];
+    }
+  }
+  const padded = [];
+  for (const b of msgBytes) padded.push(b);
+  padded.push(0x06);
+  while (padded.length % rate !== 0) padded.push(0x00);
+  padded[padded.length - 1] |= 0x80;
+  const sArr = new Uint32Array(50);
+  for (let off = 0; off < padded.length; off += rate) {
+    // Absorb rate bytes into state (little-endian 64-bit lanes)
+    for (let i = 0; i < rate; i++) {
+      const lane = i >> 3;
+      const shift = (i % 8) * 8;
+      if (shift < 32) sArr[lane * 2]     ^= (padded[off + i] << shift) >>> 0;
+      else            sArr[lane * 2 + 1] ^= (padded[off + i] << (shift - 32)) >>> 0;
+    }
+    keccakF(sArr);
+  }
+  const out = [];
+  for (let i = 0; i < outputLen; i++) {
+    const lane = i >> 3;
+    const shift = (i % 8) * 8;
+    const word = shift < 32 ? sArr[lane * 2] : sArr[lane * 2 + 1];
+    out.push((word >>> (shift < 32 ? shift : shift - 32)) & 0xff);
+  }
+  return out.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ---- Tab switch ----
+let currentTab = 'text';
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('panel-text').classList.toggle('hidden', tab !== 'text');
+  document.getElementById('panel-file').classList.toggle('hidden', tab !== 'file');
+  document.getElementById('tab-text').classList.toggle('active', tab === 'text');
+  document.getElementById('tab-file').classList.toggle('active', tab === 'file');
+}
+
+// ---- Algorithm chips ----
+document.querySelectorAll('[data-algo]').forEach(chip => {
+  chip.addEventListener('click', () => chip.classList.toggle('active'));
+});
+
+function getSelectedAlgos() {
+  return [...document.querySelectorAll('[data-algo].active')].map(c=>c.dataset.algo);
+}
+
+// ---- Hash text ----
+async function hashText() {
+  const input = document.getElementById('text-input').value;
+  const hmacKey = document.getElementById('hmac-key').value;
+  const algos = getSelectedAlgos();
+  document.getElementById('error-msg').textContent = '';
+  const data = new TextEncoder().encode(input);
+  await computeAndRender(data, algos, hmacKey, input);
+}
+
+async function computeAndRender(data, algos, hmacKey, rawStr) {
+  const results = [];
+  for (const algo of algos) {
+    try {
+      let hash;
+      if (hmacKey) {
+        if (algo === 'SHA-256') hash = await webcryptoHMAC('SHA-256', hmacKey, data);
+        else if (algo === 'SHA-512') hash = await webcryptoHMAC('SHA-512', hmacKey, data);
+        else if (algo === 'SHA-1') hash = await webcryptoHMAC('SHA-1', hmacKey, data);
+        else if (algo === 'MD5') hash = md5(rawStr || new TextDecoder().decode(data));
+        else if (algo === 'CRC32') hash = crc32(data);
+        else if (algo === 'SHA3-256') hash = sha3_256(data);
+        else if (algo === 'NTLM') hash = ntlm(rawStr || new TextDecoder().decode(data));
+        else hash = await webcryptoHash(algo === 'SHA3-256' ? 'SHA-256' : algo, data);
+      } else {
+        if (algo === 'MD5') hash = md5(rawStr !== undefined ? rawStr : new TextDecoder().decode(data));
+        else if (algo === 'CRC32') hash = crc32(data);
+        else if (algo === 'SHA3-256') hash = sha3_256(data);
+        else if (algo === 'NTLM') hash = ntlm(rawStr !== undefined ? rawStr : new TextDecoder().decode(data));
+        else hash = await webcryptoHash(algo, data);
+      }
+      results.push({algo, hash, hmac: !!hmacKey && !['MD5','CRC32','SHA3-256','NTLM'].includes(algo)});
+    } catch(e) {
+      results.push({algo, hash: 'error: '+e.message, error: true});
+    }
+  }
+  renderResults(results);
+}
+
+function renderResults(results) {
+  const container = document.getElementById('result-rows');
+  container.innerHTML = '';
+  results.forEach(({algo, hash, hmac, error}) => {
+    const row = document.createElement('div');
+    row.className = 'result-row';
+    row.innerHTML = `
+      <span class="algo-label">${algo}${hmac?' (hmac)':''}</span>
+      <span class="hash-val${error?' text-red-400':''}" title="click to copy" onclick="navigator.clipboard.writeText('${hash}')">${hash}</span>
+      <button class="copy-btn" onclick="navigator.clipboard.writeText('${hash}')">copy</button>
+    `;
+    container.appendChild(row);
+  });
+  document.getElementById('results').classList.remove('hidden');
+}
+
+// ---- File hashing ----
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) hashFile(file);
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) hashFile(file);
+}
+
+async function hashFile(file) {
+  document.getElementById('drop-text').textContent = `Reading: ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+  const progress = document.getElementById('file-progress');
+  progress.style.width = '30%';
+  const data = await file.arrayBuffer();
+  progress.style.width = '70%';
+  const uint8 = new Uint8Array(data);
+  const algos = getSelectedAlgos();
+  const hmacKey = '';
+  progress.style.width = '100%';
+  await computeAndRender(uint8, algos, hmacKey, undefined);
+  document.getElementById('drop-text').textContent = `Hashed: ${file.name}`;
+  setTimeout(()=>{ progress.style.width='0%'; }, 800);
+}
+
+// ---- Live update ----
+document.getElementById('text-input').addEventListener('input', () => {
+  if (document.getElementById('live-hash').checked) hashText();
+});
+document.getElementById('hmac-key').addEventListener('input', () => {
+  if (document.getElementById('live-hash').checked) hashText();
+});
+
+// ---- Test vectors ----
+async function loadVector(str) {
+  document.getElementById('text-input').value = str;
+  switchTab('text');
+  await hashText();
+  const sha256El = [...document.querySelectorAll('.result-row')].find(r => r.querySelector('.algo-label').textContent.startsWith('SHA-256'));
+  const expected = {
+    'abc': 'ba7816bf8f01cfea414140de5dae2ec73b00361bbef0469db58e9a7f67d2ead5f04c75a1d5d6e61f',
+    '': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    'The quick brown fox jumps over the lazy dog': '2fd4e1c67a2d28fced849ee1bb76e7391b93eb12',
+  };
+  if (sha256El) {
+    const hash = sha256El.querySelector('.hash-val').textContent;
+    const prefix = str === 'The quick brown fox jumps over the lazy dog' ? hash.slice(0,8) : hash.slice(0,8);
+    document.getElementById('vector-result').innerHTML = `
+      <span class="text-[#6b7280]">Input: </span><span class="text-[#d4d4d4]">${JSON.stringify(str.slice(0,40))}</span><br>
+      <span class="text-[#6b7280]">SHA-256: </span><span class="text-[#00ff88]">${hash}</span>
+    `;
+  }
+}
+
+// ---- NTLM (NT hash = MD4 of UTF-16LE) ----
+function ntlm(password) {
+  // Encode as UTF-16LE
+  const utf16 = [];
+  for (let i = 0; i < password.length; i++) {
+    const c = password.charCodeAt(i);
+    utf16.push(c & 0xff, (c >> 8) & 0xff);
+  }
+  // MD4
+  function safeAdd(x,y){const lsw=(x&0xffff)+(y&0xffff);return(((x>>16)+(y>>16)+(lsw>>16))<<16)|(lsw&0xffff);}
+  function rotl(n,b){return(n<<b)|(n>>>(32-b));}
+  function F(x,y,z){return(x&y)|((~x)&z);}
+  function G(x,y,z){return(x&y)|(x&z)|(y&z);}
+  function H(x,y,z){return x^y^z;}
+  const msg=new Uint8Array(utf16);
+  const ml=msg.length,wc=((ml+8)>>6)+1;
+  const M=new Int32Array(wc*16);
+  for(let i=0;i<ml;i++) M[i>>2]|=msg[i]<<((i%4)*8);
+  M[ml>>2]|=0x80<<((ml%4)*8); M[wc*16-2]=ml*8;
+  let a=0x67452301,b=0xEFCDAB89,c=0x98BADCFE,d=0x10325476;
+  for(let i=0;i<M.length;i+=16){
+    let[aa,bb,cc,dd]=[a,b,c,d];
+    for(const[k,s]of[[0,3],[1,7],[2,11],[3,19],[4,3],[5,7],[6,11],[7,19],[8,3],[9,7],[10,11],[11,19],[12,3],[13,7],[14,11],[15,19]]){
+      a=rotl(safeAdd(safeAdd(a,F(b,c,d)),safeAdd(M[i+k],0)),s);[a,b,c,d]=[d,a,b,c];}
+    for(const[k,s]of[[0,3],[4,7],[8,11],[12,15],[1,3],[5,7],[9,11],[13,15],[2,3],[6,7],[10,11],[14,15],[3,3],[7,7],[11,11],[15,15]]){
+      a=rotl(safeAdd(safeAdd(a,G(b,c,d)),safeAdd(M[i+k],0x5A827999)),s);[a,b,c,d]=[d,a,b,c];}
+    for(const[k,s]of[[0,3],[8,9],[4,11],[12,15],[2,3],[10,9],[6,11],[14,15],[1,3],[9,9],[5,11],[13,15],[3,3],[11,9],[7,11],[15,15]]){
+      a=rotl(safeAdd(safeAdd(a,H(b,c,d)),safeAdd(M[i+k],0x6ED9EBA1)),s);[a,b,c,d]=[d,a,b,c];}
+    a=safeAdd(a,aa);b=safeAdd(b,bb);c=safeAdd(c,cc);d=safeAdd(d,dd);
+  }
+  function i2h(n){return('0'+((n&0xff).toString(16))).slice(-2)+('0'+(((n>>8)&0xff).toString(16))).slice(-2)+('0'+(((n>>16)&0xff).toString(16))).slice(-2)+('0'+(((n>>24)&0xff).toString(16))).slice(-2);}
+  return i2h(a)+i2h(b)+i2h(c)+i2h(d);
+}
+
+// ---- Hash identifier ----
+const HEX_MAP = {
+  8: ['CRC32'],
+  32: ['MD5', 'NTLM', 'MD4', 'LM'],
+  40: ['SHA-1', 'RIPEMD-160'],
+  56: ['SHA-224', 'SHA3-224'],
+  64: ['SHA-256', 'SHA3-256', 'BLAKE2s-256'],
+  96: ['SHA-384', 'SHA3-384'],
+  128: ['SHA-512', 'SHA3-512', 'BLAKE2b-512'],
+};
+function identifyHash() {
+  const s = document.getElementById('identify-input').value.trim();
+  const el = document.getElementById('identify-result');
+  if (!s) { el.innerHTML = ''; return; }
+  const isHex = /^[0-9a-fA-F]+$/.test(s);
+  const isB64 = /^[A-Za-z0-9+/=]+$/.test(s);
+  let candidates = [];
+  if (isHex && s.length in HEX_MAP) candidates = HEX_MAP[s.length];
+  else if (!isHex && isB64) candidates = ['Base64-encoded hash — decode first'];
+  else if (s.startsWith('$2') && s.length === 60) candidates = ['bcrypt'];
+  else if (s.startsWith('$6$')) candidates = ['sha512crypt'];
+  else candidates = [`Unknown — length ${s.length}, charset: ${isHex?'hex':isB64?'base64':'other'}`];
+  el.innerHTML = `<div class="text-[#6b7280] mb-2">Length: ${s.length} chars${isHex?' (hex)':isB64?' (base64)':''}</div>`
+    + candidates.map(c=>`<div><span style="color:#00ff88">→</span> ${c}</div>`).join('');
+}
+document.getElementById('identify-input').addEventListener('input', identifyHash);
+
+// Initial run
+hashText();
+</script>
+</body>
+</html>

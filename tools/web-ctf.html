@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web & CTF — Ghostwire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --bg: #0a0a0a; --surface: #111111; --surface2: #161616;
+    --border: #1e1e1e; --accent: #00ff88; --text: #d4d4d4;
+    --text-dim: #6b7280; --text-bright: #f0f0f0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'JetBrains Mono', monospace; margin: 0; min-height: 100vh;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  textarea, input[type="text"] {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text-bright); font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem; resize: vertical; outline: none;
+    transition: border-color 0.15s; width: 100%; padding: 12px;
+  }
+  textarea:focus, input:focus { border-color: var(--accent); }
+  button.run {
+    background: var(--accent); color: #000; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem; font-weight: 700; padding: 10px 24px;
+    border: none; cursor: pointer; letter-spacing: 0.06em;
+    transition: background 0.15s, transform 0.1s;
+  }
+  button.run:hover { background: #00cc6a; transform: translateY(-1px); }
+  button.run:active { transform: translateY(0); }
+  button.tab {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-dim); font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; padding: 8px 16px; cursor: pointer;
+    transition: all 0.15s;
+  }
+  button.tab:hover { border-color: var(--text-dim); color: var(--text); }
+  button.tab.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+  button.copy-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; padding: 5px 10px;
+    cursor: pointer; transition: border-color 0.15s, color 0.15s;
+  }
+  button.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .error { color: #ff4444; font-size: 0.75rem; }
+  .label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 6px; }
+  .card { background: var(--surface); border: 1px solid var(--border); padding: 16px; }
+  .jwt-part { word-break: break-all; font-size: 0.75rem; padding: 4px; border-radius: 2px; }
+  .jwt-header { color: #ff5555; background: rgba(255,85,85,0.1); }
+  .jwt-payload { color: #d4a5ff; background: rgba(212,165,255,0.1); }
+  .jwt-signature { color: #00ff88; background: rgba(0,255,136,0.1); }
+</style>
+</head>
+<body>
+<div class="max-w-4xl mx-auto px-6 py-12">
+
+  <!-- Nav -->
+  <nav class="mb-10 flex items-center gap-4 text-xs text-[#4b5563]">
+    <a href="index.html" class="text-[#6b7280] hover:text-[#00ff88] transition-colors">ghostwire</a>
+    <span>/</span>
+    <span class="text-[#00ff88]">web-ctf</span>
+  </nav>
+
+  <!-- Title -->
+  <div class="flex items-center gap-3 mb-8">
+    <div class="w-1.5 h-6 bg-[#00ff88]"></div>
+    <h1 class="text-xl font-bold text-[#f0f0f0] tracking-tight">WEB & CTF</h1>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex flex-wrap gap-1 mb-8">
+    <button class="tab active" id="tab-jwt" onclick="switchTab('jwt')">JWT decoder</button>
+    <button class="tab" id="tab-compress" onclick="switchTab('compress')">compression (gzip/deflate)</button>
+  </div>
+
+  <!-- ===================== JWT PANEL ===================== -->
+  <div id="panel-jwt">
+    <div class="mb-4">
+      <div class="label">Encoded JWT (paste here)</div>
+      <textarea id="jwt-input" rows="4" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."></textarea>
+    </div>
+    
+    <div id="jwt-error" class="error mb-4"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="jwt-results" style="display: none;">
+      <div>
+        <div class="label flex justify-between"><span>Header (JSON)</span><button class="copy-btn" onclick="copyEl('jwt-header-out')">copy</button></div>
+        <textarea id="jwt-header-out" rows="5" readonly class="jwt-header mb-4"></textarea>
+
+        <div class="label flex justify-between"><span>Payload (JSON)</span><button class="copy-btn" onclick="copyEl('jwt-payload-out')">copy</button></div>
+        <textarea id="jwt-payload-out" rows="8" readonly class="jwt-payload"></textarea>
+      </div>
+      <div>
+        <div class="label">Signature (Hex / Base64url)</div>
+        <textarea id="jwt-sig-out" rows="4" readonly class="jwt-signature mb-4"></textarea>
+        
+        <div class="card">
+          <div class="label text-[#f0f0f0]">Notes</div>
+          <p class="text-xs text-[#6b7280] mt-2 leading-relaxed">
+            JWTs are signed, not encrypted (unless JWE). The header and payload are Base64url encoded.<br><br>
+            Common CTF attacks:<br>
+            - Change <code>alg</code> to <code>"none"</code> and strip signature.<br>
+            - Change <code>alg</code> from RS256 to HS256 and sign with public key.<br>
+            - Brute-force weak HMAC keys (e.g. using hashcat).
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== COMPRESSION PANEL ===================== -->
+  <div id="panel-compress" class="hidden">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div>
+        <div class="label">Algorithm</div>
+        <div class="flex gap-2">
+          <button class="tab active" id="c-algo-gzip" onclick="setCompAlgo('gzip')">gzip</button>
+          <button class="tab" id="c-algo-deflate" onclick="setCompAlgo('deflate')">deflate</button>
+        </div>
+      </div>
+      <div>
+        <div class="label">Direction</div>
+        <div class="flex gap-2">
+          <button class="tab active" id="c-dir-comp" onclick="setCompDir('compress')">compress</button>
+          <button class="tab" id="c-dir-decomp" onclick="setCompDir('decompress')">decompress</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="mb-4" id="c-out-mode-box">
+      <div class="label">Output Format</div>
+      <div class="flex gap-2">
+        <button class="tab active" id="c-out-b64" onclick="setCompOut('base64')">base64</button>
+        <button class="tab" id="c-out-hex" onclick="setCompOut('hex')">hex</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <div class="label">Input</div>
+        <textarea id="comp-in" rows="8" placeholder="Text (to compress) or Hex/Base64 (to decompress)..."></textarea>
+      </div>
+      <div>
+        <div class="label flex justify-between"><span>Output</span><button class="copy-btn" onclick="copyEl('comp-out')">copy</button></div>
+        <textarea id="comp-out" rows="8" readonly></textarea>
+      </div>
+    </div>
+
+    <div class="mt-4 flex items-center gap-3">
+      <button class="run" onclick="runCompression()">RUN</button>
+      <span id="comp-error" class="error"></span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ========== Tab management ==========
+let activeTab = 'jwt';
+function switchTab(t) {
+  activeTab = t;
+  document.getElementById('panel-jwt').classList.toggle('hidden', t !== 'jwt');
+  document.getElementById('panel-compress').classList.toggle('hidden', t !== 'compress');
+  document.getElementById('tab-jwt').classList.toggle('active', t === 'jwt');
+  document.getElementById('tab-compress').classList.toggle('active', t === 'compress');
+}
+function copyEl(id) {
+  const el = document.getElementById(id);
+  navigator.clipboard.writeText(el.value).catch(() => { el.select(); document.execCommand('copy'); });
+}
+
+// ========== JWT Decoder ==========
+function decodeBase64Url(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = (4 - str.length % 4) % 4;
+  str += '='.repeat(pad);
+  try {
+    return decodeURIComponent(escape(atob(str)));
+  } catch {
+    return atob(str); // Not UTF-8 or raw bytes
+  }
+}
+function rawBase64UrlToHex(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = (4 - str.length % 4) % 4;
+  str += '='.repeat(pad);
+  const bin = atob(str);
+  return Array.from(bin).map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join('');
+}
+
+document.getElementById('jwt-input').addEventListener('input', (e) => {
+  const jwt = e.target.value.trim();
+  const errEl = document.getElementById('jwt-error');
+  const resEl = document.getElementById('jwt-results');
+  errEl.textContent = '';
+  
+  if (!jwt) { resEl.style.display = 'none'; return; }
+  
+  const parts = jwt.split('.');
+  if (parts.length < 2 || parts.length > 3) {
+    errEl.textContent = 'Invalid JWT format (must have 2 or 3 dot-separated parts).';
+    resEl.style.display = 'none';
+    return;
+  }
+  
+  try {
+    const head = decodeBase64Url(parts[0]);
+    let headFmt = head;
+    try { headFmt = JSON.stringify(JSON.parse(head), null, 2); } catch {}
+    document.getElementById('jwt-header-out').value = headFmt;
+    
+    const payload = decodeBase64Url(parts[1]);
+    let payFmt = payload;
+    try { payFmt = JSON.stringify(JSON.parse(payload), null, 2); } catch {}
+    document.getElementById('jwt-payload-out').value = payFmt;
+    
+    if (parts[2]) {
+      const sigHex = rawBase64UrlToHex(parts[2]);
+      document.getElementById('jwt-sig-out').value = `Base64url:\n${parts[2]}\n\nHex:\n${sigHex}`;
+    } else {
+      document.getElementById('jwt-sig-out').value = '(No signature)';
+    }
+    
+    resEl.style.display = 'grid';
+  } catch (ex) {
+    errEl.textContent = 'Error decoding Base64url parts.';
+    resEl.style.display = 'none';
+  }
+});
+
+// ========== Compression ==========
+let compAlgo = 'gzip';
+let compDir = 'compress';
+let compOutMode = 'base64'; // base64 or hex
+
+function setCompAlgo(algo) {
+  compAlgo = algo;
+  document.getElementById('c-algo-gzip').classList.toggle('active', algo === 'gzip');
+  document.getElementById('c-algo-deflate').classList.toggle('active', algo === 'deflate');
+}
+function setCompDir(dir) {
+  compDir = dir;
+  document.getElementById('c-dir-comp').classList.toggle('active', dir === 'compress');
+  document.getElementById('c-dir-decomp').classList.toggle('active', dir === 'decompress');
+  document.getElementById('c-out-mode-box').classList.toggle('hidden', dir === 'decompress');
+}
+function setCompOut(mode) {
+  compOutMode = mode;
+  document.getElementById('c-out-b64').classList.toggle('active', mode === 'base64');
+  document.getElementById('c-out-hex').classList.toggle('active', mode === 'hex');
+}
+
+async function runCompression() {
+  const input = document.getElementById('comp-in').value.trim();
+  const errEl = document.getElementById('comp-error');
+  const outEl = document.getElementById('comp-out');
+  errEl.textContent = '';
+  outEl.value = '';
+  if (!input) return;
+
+  try {
+    if (compDir === 'compress') {
+      const stream = new Blob([new TextEncoder().encode(input)]).stream();
+      const compressed = stream.pipeThrough(new CompressionStream(compAlgo));
+      const res = await new Response(compressed).arrayBuffer();
+      const bytes = new Uint8Array(res);
+      if (compOutMode === 'hex') {
+        outEl.value = Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
+      } else {
+        let binary = '';
+        bytes.forEach(b => binary += String.fromCharCode(b));
+        outEl.value = btoa(binary);
+      }
+    } else {
+      let rawBytes;
+      if (/^[0-9a-fA-F\s]+$/.test(input) && input.indexOf('=') === -1 && !input.startsWith('H4sIA')) {
+        // Hex
+        const hex = input.replace(/\s+/g, '');
+        rawBytes = new Uint8Array(hex.length / 2);
+        for(let i=0; i<hex.length; i+=2) rawBytes[i/2] = parseInt(hex.slice(i, i+2), 16);
+      } else {
+        // Base64
+        const binary = atob(input.replace(/\s+/g,''));
+        rawBytes = new Uint8Array(binary.length);
+        for(let i=0; i<binary.length; i++) rawBytes[i] = binary.charCodeAt(i);
+      }
+      
+      const stream = new Blob([rawBytes]).stream();
+      const decompressed = stream.pipeThrough(new DecompressionStream(compAlgo));
+      const text = await new Response(decompressed).text();
+      outEl.value = text;
+    }
+  } catch (e) {
+    errEl.textContent = 'Error: ' + e.message;
+  }
+}
+</script>
+</body>
+</html>

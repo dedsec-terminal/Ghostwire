@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Encode / Decode — Ghostwire</title>
+<meta name="description" content="Browser-based encoding and decoding: Base64, Base32, Base58, Base85, ASCII85, Hex, URL, HTML, Binary, Morse, ROT-N, ROT47, Uuencode, Quoted-Printable, Punycode, Leet, NATO. All client-side.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --bg: #0a0a0a; --surface: #111111; --surface2: #161616;
+    --border: #1e1e1e; --accent: #00ff88; --text: #d4d4d4;
+    --text-dim: #6b7280; --text-bright: #f0f0f0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'JetBrains Mono', monospace; margin: 0; min-height: 100vh;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  textarea {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text-bright); font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem; resize: vertical; outline: none;
+    transition: border-color 0.15s; width: 100%; padding: 12px;
+  }
+  textarea:focus { border-color: var(--accent); }
+  select, input[type="text"], input[type="number"] {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text-bright); font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem; padding: 8px 10px; outline: none;
+    transition: border-color 0.15s; width: 100%;
+  }
+  select:focus, input:focus { border-color: var(--accent); }
+  button.run {
+    background: var(--accent); color: #000; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem; font-weight: 700; padding: 10px 24px;
+    border: none; cursor: pointer; letter-spacing: 0.06em;
+    transition: background 0.15s, transform 0.1s;
+  }
+  button.run:hover { background: #00cc6a; transform: translateY(-1px); }
+  button.run:active { transform: translateY(0); }
+  button.swap {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; padding: 8px 14px;
+    cursor: pointer; transition: border-color 0.15s, color 0.15s;
+  }
+  button.swap:hover { border-color: var(--accent); color: var(--accent); }
+  button.copy {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; padding: 5px 10px;
+    cursor: pointer; transition: border-color 0.15s, color 0.15s;
+  }
+  button.copy:hover { border-color: var(--accent); color: var(--accent); }
+  .error { color: #ff4444; font-size: 0.75rem; }
+  .label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin-bottom: 6px; }
+  .chip {
+    display: inline-block; font-size: 0.6rem; padding: 2px 7px;
+    border: 1px solid var(--border); color: var(--text-dim); cursor: pointer;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+  }
+  .chip:hover, .chip.active {
+    border-color: var(--accent); color: var(--accent); background: rgba(0,255,136,0.06);
+  }
+  .section-label {
+    font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: #374151; margin-top: 8px; margin-bottom: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="max-w-4xl mx-auto px-6 py-12">
+
+  <!-- Nav -->
+  <nav class="mb-10 flex items-center gap-4 text-xs text-[#4b5563]">
+    <a href="index.html" class="text-[#6b7280] hover:text-[#00ff88] transition-colors">ghostwire</a>
+    <span>/</span>
+    <span class="text-[#00ff88]">encode-decode</span>
+  </nav>
+
+  <!-- Title -->
+  <div class="flex items-center gap-3 mb-8">
+    <div class="w-1.5 h-6 bg-[#00ff88]"></div>
+    <h1 class="text-xl font-bold text-[#f0f0f0] tracking-tight">ENCODE / DECODE</h1>
+  </div>
+
+  <!-- Operation selector -->
+  <div class="mb-6">
+    <div class="label">Operation</div>
+    <div class="section-label">Base encodings</div>
+    <div class="flex flex-wrap gap-2 mb-2" id="op-chips">
+      <span class="chip active" data-op="base64">base64</span>
+      <span class="chip" data-op="base64url">base64url</span>
+      <span class="chip" data-op="base32">base32</span>
+      <span class="chip" data-op="base58">base58</span>
+      <span class="chip" data-op="base85">base85</span>
+      <span class="chip" data-op="ascii85">ascii85</span>
+      <span class="chip" data-op="hex">hex</span>
+    </div>
+    <div class="section-label">Web / text</div>
+    <div class="flex flex-wrap gap-2 mb-2">
+      <span class="chip" data-op="url">url</span>
+      <span class="chip" data-op="html">html entities</span>
+      <span class="chip" data-op="binary">binary</span>
+      <span class="chip" data-op="uuencode">uuencode</span>
+      <span class="chip" data-op="qp">quoted-printable</span>
+      <span class="chip" data-op="punycode">punycode</span>
+    </div>
+    <div class="section-label">Substitution / codes</div>
+    <div class="flex flex-wrap gap-2">
+      <span class="chip" data-op="morse">morse</span>
+      <span class="chip" data-op="rot">rot-n</span>
+      <span class="chip" data-op="rot47">rot47</span>
+      <span class="chip" data-op="leet">leetspeak</span>
+      <span class="chip" data-op="nato">nato phonetic</span>
+    </div>
+  </div>
+
+  <!-- ROT-N option -->
+  <div id="rot-option" class="mb-4 hidden">
+    <div class="label">ROT shift (1–25)</div>
+    <input type="number" id="rot-n" value="13" min="1" max="25" style="width:100px">
+  </div>
+
+  <!-- Direction -->
+  <div class="mb-6 flex gap-2">
+    <button id="dir-encode" class="chip active" onclick="setDir('encode')">encode</button>
+    <button id="dir-decode" class="chip" onclick="setDir('decode')">decode</button>
+  </div>
+
+  <!-- Input / Output -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <div class="label flex justify-between">
+        <span>Input</span>
+        <button class="copy" onclick="copyText('input')">copy</button>
+      </div>
+      <textarea id="input" rows="12" placeholder="Type or paste text here..."></textarea>
+    </div>
+    <div>
+      <div class="label flex justify-between">
+        <span>Output</span>
+        <button class="copy" onclick="copyText('output')">copy</button>
+      </div>
+      <textarea id="output" rows="12" placeholder="Result appears here..." readonly></textarea>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="mt-4 flex flex-wrap gap-3 items-center">
+    <button class="run" onclick="run()">RUN</button>
+    <button class="swap" onclick="swapIO()">⇄ swap</button>
+    <button class="swap" onclick="clearAll()">clear</button>
+    <span id="error" class="error"></span>
+  </div>
+
+  <!-- Live mode -->
+  <div class="mt-4 flex items-center gap-2">
+    <input type="checkbox" id="live" checked style="accent-color:#00ff88">
+    <label for="live" class="text-xs text-[#6b7280]">live update</label>
+  </div>
+
+</div>
+
+<script>
+// ---- State ----
+let currentOp = 'base64';
+let currentDir = 'encode';
+
+// ---- Operation chips ----
+document.querySelectorAll('[data-op]').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('[data-op]').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    currentOp = chip.dataset.op;
+    document.getElementById('rot-option').classList.toggle('hidden', currentOp !== 'rot');
+    if (document.getElementById('live').checked) run();
+  });
+});
+
+function setDir(dir) {
+  currentDir = dir;
+  document.getElementById('dir-encode').classList.toggle('active', dir === 'encode');
+  document.getElementById('dir-decode').classList.toggle('active', dir === 'decode');
+  if (document.getElementById('live').checked) run();
+}
+
+// ---- Live update ----
+document.getElementById('input').addEventListener('input', () => {
+  if (document.getElementById('live').checked) run();
+});
+document.getElementById('rot-n').addEventListener('input', () => {
+  if (document.getElementById('live').checked) run();
+});
+
+// ============================================================
+// Core implementations
+// ============================================================
+
+// Base64
+function base64Encode(s) { return btoa(unescape(encodeURIComponent(s))); }
+function base64Decode(s) {
+  s = s.trim().replace(/-/g,'+').replace(/_/g,'/');
+  const pad = (4 - s.length % 4) % 4; s += '='.repeat(pad);
+  return decodeURIComponent(escape(atob(s)));
+}
+function base64urlEncode(s) {
+  return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+function base64urlDecode(s) { return base64Decode(s); }
+
+// Base32
+function base32Encode(str) {
+  const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const bytes = new TextEncoder().encode(str);
+  let bits = 0, val = 0, out = '';
+  for (const b of bytes) { val = (val << 8) | b; bits += 8; while (bits >= 5) { bits -= 5; out += alpha[(val >> bits) & 31]; } }
+  if (bits > 0) out += alpha[(val << (5 - bits)) & 31];
+  const pad = (8 - out.length % 8) % 8;
+  return out + '='.repeat(pad);
+}
+function base32Decode(str) {
+  const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  str = str.trim().toUpperCase().replace(/=+$/, '');
+  let bits = 0, val = 0; const bytes = [];
+  for (const ch of str) { const idx = alpha.indexOf(ch); if (idx < 0) continue; val = (val << 5) | idx; bits += 5; if (bits >= 8) { bits -= 8; bytes.push((val >> bits) & 0xff); } }
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+// Base58 (Bitcoin alphabet)
+const B58_ALPHA = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function base58Encode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let n = 0n;
+  for (const b of bytes) n = n * 256n + BigInt(b);
+  let out = '';
+  while (n > 0n) { const rem = Number(n % 58n); n /= 58n; out = B58_ALPHA[rem] + out; }
+  const leading = bytes.findIndex(b => b !== 0);
+  return '1'.repeat(leading < 0 ? bytes.length : leading) + out;
+}
+function base58Decode(str) {
+  str = str.trim();
+  let n = 0n;
+  for (const ch of str) { const idx = B58_ALPHA.indexOf(ch); if (idx < 0) throw new Error(`Invalid Base58 char: ${ch}`); n = n * 58n + BigInt(idx); }
+  const bytes = [];
+  while (n > 0n) { bytes.unshift(Number(n & 255n)); n >>= 8n; }
+  const leading = str.length - str.replace(/^1+/,'').length;
+  const full = new Uint8Array([...Array(leading).fill(0), ...bytes]);
+  return new TextDecoder().decode(full);
+}
+
+// Base85 (RFC 1924 / Python b85encode)
+const B85_ALPHA = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$%&()*+-;<=>?@^_`{|}~';
+function base85Encode(str) {
+  const bytes = new TextEncoder().encode(str);
+  const pad = (4 - bytes.length % 4) % 4;
+  const padded = new Uint8Array(bytes.length + pad);
+  padded.set(bytes);
+  let out = '';
+  for (let i = 0; i < padded.length; i += 4) {
+    let v = ((padded[i]<<24)|(padded[i+1]<<16)|(padded[i+2]<<8)|padded[i+3]) >>> 0;
+    let chunk = '';
+    for (let j = 0; j < 5; j++) { chunk = B85_ALPHA[v % 85] + chunk; v = Math.floor(v / 85); }
+    out += chunk;
+  }
+  return out.slice(0, out.length - pad);
+}
+function base85Decode(str) {
+  str = str.trim();
+  const pad = (5 - str.length % 5) % 5;
+  str += '~'.repeat(pad);
+  const bytes = [];
+  for (let i = 0; i < str.length; i += 5) {
+    let v = 0;
+    for (let j = 0; j < 5; j++) { const idx = B85_ALPHA.indexOf(str[i+j]); if (idx < 0) throw new Error(`Invalid base85 char: ${str[i+j]}`); v = v * 85 + idx; }
+    bytes.push((v>>24)&0xff,(v>>16)&0xff,(v>>8)&0xff,v&0xff);
+  }
+  return new TextDecoder().decode(new Uint8Array(bytes.slice(0, bytes.length - pad)));
+}
+
+// ASCII85
+function ascii85Encode(str) {
+  const bytes = new TextEncoder().encode(str);
+  const pad = (4 - bytes.length % 4) % 4;
+  const padded = new Uint8Array(bytes.length + pad); padded.set(bytes);
+  let out = '';
+  for (let i = 0; i < padded.length; i += 4) {
+    let v = ((padded[i]<<24)|(padded[i+1]<<16)|(padded[i+2]<<8)|padded[i+3]) >>> 0;
+    if (v === 0) { out += 'z'; continue; }
+    let chunk = '';
+    for (let j = 0; j < 5; j++) { chunk = String.fromCharCode((v % 85) + 33) + chunk; v = Math.floor(v / 85); }
+    out += chunk;
+  }
+  if (pad > 0) out = out.slice(0, out.length - pad);
+  return out;
+}
+function ascii85Decode(str) {
+  str = str.trim().replace(/\s/g,'');
+  const bytes = [];
+  let i = 0;
+  while (i < str.length) {
+    if (str[i] === 'z') { bytes.push(0,0,0,0); i++; continue; }
+    const chunk = str.slice(i, i+5); i += 5;
+    const pad = 5 - chunk.length;
+    let v = 0;
+    for (let j = 0; j < 5; j++) v = v * 85 + ((j < chunk.length ? chunk.charCodeAt(j) : 84) - 33);
+    bytes.push((v>>24)&0xff,(v>>16)&0xff,(v>>8)&0xff,v&0xff);
+    if (pad > 0) bytes.splice(bytes.length - pad);
+  }
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+// Hex
+function hexEncode(s) { return Array.from(new TextEncoder().encode(s)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+function hexDecode(s) {
+  s = s.trim().replace(/\s+/g,'').replace(/^0x/,'');
+  if (s.length%2!==0) throw new Error('Odd hex length');
+  const bytes = []; for (let i=0;i<s.length;i+=2) bytes.push(parseInt(s.slice(i,i+2),16));
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+// URL / HTML
+function urlEncode(s) { return encodeURIComponent(s); }
+function urlDecode(s) { return decodeURIComponent(s); }
+function htmlEncode(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+function htmlDecode(s) { const d=document.createElement('div'); d.innerHTML=s; return d.textContent; }
+
+// Binary
+function binaryEncode(s) { return Array.from(new TextEncoder().encode(s)).map(b=>b.toString(2).padStart(8,'0')).join(' '); }
+function binaryDecode(s) { const parts=s.trim().split(/\s+/); const bytes=parts.map(p=>parseInt(p,2)); return new TextDecoder().decode(new Uint8Array(bytes)); }
+
+// Uuencode
+function uuencodeEncode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let out = 'begin 644 file\n';
+  for (let i = 0; i < bytes.length; i += 45) {
+    const chunk = bytes.slice(i, i + 45);
+    const len = chunk.length;
+    let line = String.fromCharCode(len + 32);
+    for (let j = 0; j < chunk.length; j += 3) {
+      const b0 = chunk[j] || 0, b1 = chunk[j+1] || 0, b2 = chunk[j+2] || 0;
+      line += String.fromCharCode(((b0>>2)&63)+32, ((((b0&3)<<4)|(b1>>4))&63)+32,
+              ((((b1&15)<<2)|(b2>>6))&63)+32, (b2&63)+32);
+    }
+    out += line + '\n';
+  }
+  return out + '`\nend';
+}
+function uuencodeDecode(str) {
+  const lines = str.replace(/\r\n/g,'\n').split('\n');
+  const bytes = [];
+  let inBody = false;
+  for (const line of lines) {
+    if (line.startsWith('begin ')) { inBody = true; continue; }
+    if (!inBody || line === '`' || line.startsWith('end')) break;
+    if (!line) continue;
+    const len = line.charCodeAt(0) - 32;
+    for (let i = 1; i < line.length && bytes.length < len + bytes.length; ) {
+      const c = (n => n === 32 ? 0 : n - 32);
+      const b0=c(line.charCodeAt(i++)),b1=c(line.charCodeAt(i++)),b2=c(line.charCodeAt(i++)),b3=c(line.charCodeAt(i++));
+      bytes.push((b0<<2)|(b1>>4), ((b1&15)<<4)|(b2>>2), ((b2&3)<<6)|b3);
+    }
+    bytes.splice(bytes.findIndex((_,idx)=>idx>=len&&bytes.length>len)?len:-1);
+  }
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+// Quoted-Printable
+function qpEncode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let out = '';
+  for (const b of bytes) {
+    if ((b >= 33 && b <= 126 && b !== 61) || b === 9 || b === 32) out += String.fromCharCode(b);
+    else out += '=' + b.toString(16).toUpperCase().padStart(2,'0');
+  }
+  return out;
+}
+function qpDecode(str) {
+  const bytes = [];
+  for (let i = 0; i < str.length; ) {
+    if (str[i] === '=' && i+2 < str.length && str[i+1] !== '\n') {
+      bytes.push(parseInt(str.slice(i+1,i+3),16)); i+=3;
+    } else { bytes.push(str.charCodeAt(i)); i++; }
+  }
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
+// Punycode (domain label)
+function punycodeEncode(str) {
+  try { return new URL('http://' + str).hostname; }
+  catch { return str; }
+}
+function punycodeDecode(str) { return str; } // browsers auto-decode ACE, display as-is
+
+// Morse
+const MORSE_TABLE = {
+  A:'.-',B:'-...',C:'-.-.',D:'-..',E:'.',F:'..-.',G:'--.',H:'....',I:'..',J:'.---',
+  K:'-.-',L:'.-..',M:'--',N:'-.',O:'---',P:'.--.',Q:'--.-',R:'.-.',S:'...',T:'-',
+  U:'..-',V:'...-',W:'.--',X:'-..-',Y:'-.--',Z:'--..',
+  '0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....',
+  '6':'-....','7':'--...','8':'---..','9':'----.',
+  '.':'.-.-.-',',':'--..--','?':'..--..','\'':`.--.-.`,'!':'-.-.--',
+  '/':'-..-.','(':'.--.',')':`-.--.-`,'&':'.-...',':':`---...`,
+  ';':'-.-.-.','=':'-...-','+':'.-.-.','-':'-....-','_':'..--..',
+  '"':'.-..-.','$':'...-..-','@':'.--.-.', ' ':'/'
+};
+const MORSE_REV = Object.fromEntries(Object.entries(MORSE_TABLE).map(([k,v])=>[v,k]));
+function morseEncode(s) { return s.toUpperCase().split('').map(c=>MORSE_TABLE[c]||'?').join(' '); }
+function morseDecode(s) { return s.trim().split(' ').map(t=>t==='/'?' ':(MORSE_REV[t]||'?')).join(''); }
+
+// ROT-N
+function rotEncode(s,n) {
+  n=((n%26)+26)%26;
+  return s.replace(/[a-z]/g,c=>String.fromCharCode((c.charCodeAt(0)-97+n)%26+97))
+          .replace(/[A-Z]/g,c=>String.fromCharCode((c.charCodeAt(0)-65+n)%26+65));
+}
+function rotDecode(s,n) { return rotEncode(s,-n); }
+
+// ROT47
+function rot47Encode(s) {
+  return s.split('').map(c=>{const o=c.charCodeAt(0);return o>=33&&o<=126?String.fromCharCode((o-33+47)%94+33):c;}).join('');
+}
+function rot47Decode(s) { return rot47Encode(s); }
+
+// Leet
+const LEET_ENC = {a:'4',e:'3',g:'9',i:'1',l:'1',o:'0',s:'5',t:'7',b:'8',z:'2'};
+const LEET_DEC = Object.fromEntries(Object.entries(LEET_ENC).map(([k,v])=>[v,k]));
+function leetEncode(s) { return s.toLowerCase().split('').map(c=>LEET_ENC[c]||c).join(''); }
+function leetDecode(s) { return s.split('').map(c=>LEET_DEC[c]||c).join(''); }
+
+// NATO
+const NATO = {A:'Alpha',B:'Bravo',C:'Charlie',D:'Delta',E:'Echo',F:'Foxtrot',G:'Golf',H:'Hotel',
+  I:'India',J:'Juliet',K:'Kilo',L:'Lima',M:'Mike',N:'November',O:'Oscar',P:'Papa',Q:'Quebec',
+  R:'Romeo',S:'Sierra',T:'Tango',U:'Uniform',V:'Victor',W:'Whiskey',X:'X-ray',Y:'Yankee',Z:'Zulu',
+  '0':'Zero','1':'One','2':'Two','3':'Three','4':'Four','5':'Five','6':'Six','7':'Seven','8':'Eight','9':'Nine'};
+const NATO_REV = Object.fromEntries(Object.entries(NATO).map(([k,v])=>[v.toLowerCase(),k]));
+function natoEncode(s) { return s.toUpperCase().split('').map(c=>NATO[c]||`[${c}]`).join(' '); }
+function natoDecode(s) { return s.trim().split(/\s+/).map(t=>{const l=t.toLowerCase();return l in NATO_REV?NATO_REV[l]:t;}).join(''); }
+
+// ---- Run ----
+function run() {
+  const input = document.getElementById('input').value;
+  const errEl = document.getElementById('error');
+  errEl.textContent = '';
+  try {
+    let result;
+    const n = parseInt(document.getElementById('rot-n').value) || 13;
+    if (currentDir === 'encode') {
+      switch (currentOp) {
+        case 'base64':    result = base64Encode(input); break;
+        case 'base64url': result = base64urlEncode(input); break;
+        case 'base32':    result = base32Encode(input); break;
+        case 'base58':    result = base58Encode(input); break;
+        case 'base85':    result = base85Encode(input); break;
+        case 'ascii85':   result = ascii85Encode(input); break;
+        case 'hex':       result = hexEncode(input); break;
+        case 'url':       result = urlEncode(input); break;
+        case 'html':      result = htmlEncode(input); break;
+        case 'binary':    result = binaryEncode(input); break;
+        case 'uuencode':  result = uuencodeEncode(input); break;
+        case 'qp':        result = qpEncode(input); break;
+        case 'punycode':  result = punycodeEncode(input); break;
+        case 'morse':     result = morseEncode(input); break;
+        case 'rot':       result = rotEncode(input, n); break;
+        case 'rot47':     result = rot47Encode(input); break;
+        case 'leet':      result = leetEncode(input); break;
+        case 'nato':      result = natoEncode(input); break;
+      }
+    } else {
+      switch (currentOp) {
+        case 'base64':    result = base64Decode(input); break;
+        case 'base64url': result = base64urlDecode(input); break;
+        case 'base32':    result = base32Decode(input); break;
+        case 'base58':    result = base58Decode(input); break;
+        case 'base85':    result = base85Decode(input); break;
+        case 'ascii85':   result = ascii85Decode(input); break;
+        case 'hex':       result = hexDecode(input); break;
+        case 'url':       result = urlDecode(input); break;
+        case 'html':      result = htmlDecode(input); break;
+        case 'binary':    result = binaryDecode(input); break;
+        case 'uuencode':  result = uuencodeDecode(input); break;
+        case 'qp':        result = qpDecode(input); break;
+        case 'punycode':  result = punycodeDecode(input); break;
+        case 'morse':     result = morseDecode(input); break;
+        case 'rot':       result = rotDecode(input, n); break;
+        case 'rot47':     result = rot47Decode(input); break;
+        case 'leet':      result = leetDecode(input); break;
+        case 'nato':      result = natoDecode(input); break;
+      }
+    }
+    document.getElementById('output').value = result ?? '';
+  } catch(e) {
+    errEl.textContent = 'Error: ' + e.message;
+  }
+}
+
+function swapIO() {
+  const a = document.getElementById('input').value;
+  const b = document.getElementById('output').value;
+  document.getElementById('input').value = b;
+  document.getElementById('output').value = a;
+  setDir(currentDir === 'encode' ? 'decode' : 'encode');
+}
+function clearAll() {
+  document.getElementById('input').value = '';
+  document.getElementById('output').value = '';
+  document.getElementById('error').textContent = '';
+}
+function copyText(id) {
+  const el = document.getElementById(id);
+  navigator.clipboard.writeText(el.value).catch(() => { el.select(); document.execCommand('copy'); });
+}
+</script>
+</body>
+</html>

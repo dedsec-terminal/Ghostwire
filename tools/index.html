@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ghostwire — Encoding, Hashing &amp; Cipher Toolkit</title>
+<meta name="description" content="Ghostwire: a static browser toolkit for encoding, decoding, hashing, and cipher operations. No server, no telemetry.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --border: #1e1e1e;
+    --accent: #00ff88;
+    --accent-dim: #00cc6a;
+    --text: #d4d4d4;
+    --text-dim: #6b7280;
+    --text-bright: #f0f0f0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    margin: 0;
+    min-height: 100vh;
+  }
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px rgba(0,255,136,0.08);
+  }
+  .tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body class="grid-bg">
+
+<div class="max-w-5xl mx-auto px-6 py-16">
+
+  <!-- Header -->
+  <header class="mb-16">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-2 h-8 bg-[#00ff88]"></div>
+      <h1 class="text-3xl font-bold tracking-tight text-[#f0f0f0]">GHOSTWIRE</h1>
+      <span class="tag">v1.0</span>
+    </div>
+    <p class="text-[#6b7280] max-w-xl leading-relaxed">
+      Static browser toolkit for encoding, decoding, hashing, and cipher operations.
+      All computation runs client-side. No data leaves your browser.
+    </p>
+    <div class="mt-4 flex gap-6 text-xs text-[#4b5563]">
+      <span><span class="dot"></span>No network requests</span>
+      <span><span class="dot"></span>No telemetry</span>
+      <span><span class="dot"></span>No dependencies</span>
+    </div>
+  </header>
+
+  <!-- Tool grid -->
+  <section>
+    <p class="text-xs text-[#4b5563] uppercase tracking-widest mb-6">Available tools</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+      <a href="encode-decode.html" id="card-encode" class="card rounded p-6 block no-underline group">
+        <div class="text-[#00ff88] text-xs font-bold uppercase tracking-widest mb-3">01 / Encode &amp; Decode</div>
+        <div class="text-[#f0f0f0] text-sm font-semibold mb-2 group-hover:text-white transition-colors">
+          Encoding Operations
+        </div>
+        <p class="text-[#6b7280] text-xs leading-relaxed">
+          Base64 · Base32 · Hex · URL · HTML entities ·
+          Binary · Morse · ROT-N
+        </p>
+        <div class="mt-4 text-[#00ff88] text-xs">open →</div>
+      </a>
+
+      <a href="hashing.html" id="card-hash" class="card rounded p-6 block no-underline group">
+        <div class="text-[#00ff88] text-xs font-bold uppercase tracking-widest mb-3">02 / Hashing</div>
+        <div class="text-[#f0f0f0] text-sm font-semibold mb-2 group-hover:text-white transition-colors">
+          Hash Functions
+        </div>
+        <p class="text-[#6b7280] text-xs leading-relaxed">
+          MD5 · SHA-1 · SHA-256 · SHA-512 · SHA3-256 ·
+          CRC32 · HMAC — text or file input
+        </p>
+        <div class="mt-4 text-[#00ff88] text-xs">open →</div>
+      </a>
+
+      <a href="cipher-lab.html" id="card-cipher" class="card rounded p-6 block no-underline group">
+        <div class="text-[#00ff88] text-xs font-bold uppercase tracking-widest mb-3">03 / Cipher Lab</div>
+        <div class="text-[#f0f0f0] text-sm font-semibold mb-2 group-hover:text-white transition-colors">
+          Ciphers &amp; Analysis
+        </div>
+        <p class="text-[#6b7280] text-xs leading-relaxed">
+          Caesar · Vigenère · XOR · Atbash ·
+          Caesar brute-force · XOR brute-force · Frequency analysis
+        </p>
+        <div class="mt-4 text-[#00ff88] text-xs">open →</div>
+      </a>
+
+      <a href="web-ctf.html" id="card-web" class="card rounded p-6 block no-underline group">
+        <div class="text-[#00ff88] text-xs font-bold uppercase tracking-widest mb-3">04 / Web &amp; CTF</div>
+        <div class="text-[#f0f0f0] text-sm font-semibold mb-2 group-hover:text-white transition-colors">
+          Web tokens &amp; compression
+        </div>
+        <p class="text-[#6b7280] text-xs leading-relaxed">
+          JWT decoder · Gzip/zlib compress &amp; decompress
+        </p>
+        <div class="mt-4 text-[#00ff88] text-xs">open →</div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- CLI reference -->
+  <section class="mt-16">
+    <p class="text-xs text-[#4b5563] uppercase tracking-widest mb-6">CLI quick reference</p>
+    <div class="card rounded p-6">
+      <p class="text-xs text-[#6b7280] mb-4">ghostwire.py — Python 3, stdlib only. Reads from stdin when no text argument is given.</p>
+      <pre class="text-xs text-[#d4d4d4] leading-relaxed overflow-x-auto"><code><span class="text-[#6b7280]"># encoding</span>
+python ghostwire.py encode base64 "hello world"
+python ghostwire.py decode base64 "aGVsbG8gd29ybGQ="
+python ghostwire.py encode hex "secret"
+python ghostwire.py encode morse "SOS"
+python ghostwire.py encode rot -n 13 "Hello"
+
+<span class="text-[#6b7280]"># hashing</span>
+python ghostwire.py hash sha256 "abc"
+python ghostwire.py hash hmac --key mykey "message"
+python ghostwire.py hash crc32 "data"
+
+<span class="text-[#6b7280]"># ciphers</span>
+python ghostwire.py cipher encode caesar --shift 13 "Hello"
+python ghostwire.py cipher decode vigenere --key SECRET "Zinc"
+python ghostwire.py cipher encode xor --key pass "plaintext"
+
+<span class="text-[#6b7280]"># cipher recovery (local ciphertext only)</span>
+python ghostwire.py recover caesar-brute "Khoor Zruog"
+python ghostwire.py recover xor-brute &lt;hex&gt;
+python ghostwire.py recover freq "ciphertext"
+
+<span class="text-[#6b7280]"># text utilities</span>
+python ghostwire.py text entropy "the quick brown fox"
+python ghostwire.py text freq "hello world"
+
+<span class="text-[#6b7280]"># stdin chaining</span>
+cat file.txt | python ghostwire.py hash sha256
+echo "hello" | python ghostwire.py encode base64 | python ghostwire.py decode base64</code></pre>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="mt-16 pt-8 border-t border-[#1e1e1e] text-xs text-[#374151] flex justify-between items-center">
+    <span>Ghostwire — MIT License</span>
+    <span>All operations are local. No data is transmitted.</span>
+  </footer>
+
+</div>
+</body>
+</html>
