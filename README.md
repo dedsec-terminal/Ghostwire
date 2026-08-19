@@ -2,7 +2,7 @@
 
 A CLI and browser GUI toolkit for encoding, decoding, hashing, cryptographic operations, and cipher analysis. All operations are local — no network calls, no telemetry.
 
-**Live Demo:** [GhostWire](https://dedsec-terminal.github.io/Ghostwire/tools/index.html)
+**Live Demo:** [GhostWire](https://dedsec-terminal.github.io/Ghostwire/)
 
 ---
 
